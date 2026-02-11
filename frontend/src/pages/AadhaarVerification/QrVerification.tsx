@@ -10,7 +10,6 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { validateAadhaar, filterAadhaarInput } from '../../utils/validation';
-import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
 import api from '../../services/api';
 
 interface VerificationStep {
@@ -28,9 +27,6 @@ const QrVerification: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [canResend, setCanResend] = useState(false);
-  const [customFields, setCustomFields] = useState<Record<string, any>>({});
-  const [availableCustomFields, setAvailableCustomFields] = useState<any[]>([]);
-  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
@@ -41,39 +37,7 @@ const QrVerification: React.FC = () => {
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null); 
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  // Validate email format
-  const isValidEmailFormat = (email: string): boolean => {
-    if (!email || typeof email !== 'string') return false;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return emailRegex.test(email.trim());
-  };
-
-  // Validate phone number format
-  const isValidPhoneNumber = (phone: string): boolean => {
-    if (!phone || typeof phone !== 'string') return false;
-    const cleaned = phone.replace(/[\s-()]/g, '');
-    return /^\d{10}$/.test(cleaned);
-  };
-
-  // Validate that all custom fields are filled
-  const areAllRequiredCustomFieldsFilled = (): boolean => {
-    if (availableCustomFields.length === 0) return true;
-    return availableCustomFields.every(field => {
-      const value = customFields[field.fieldName];
-      if (value === undefined || value === null) return false;
-      if (typeof value === 'string' && value.trim() === '') return false;
-      if (Array.isArray(value) && value.length === 0) return false;
-      if (field.fieldType === 'email' && typeof value === 'string') {
-        return isValidEmailFormat(value);
-      }
-      if (field.fieldType === 'phone' && typeof value === 'string') {
-        return isValidPhoneNumber(value);
-      }
-      return true;
-    });
-  };
-
-  // Fetch user info and custom fields on mount
+  // Fetch user info on mount
   useEffect(() => {
     const fetchUserInfo = async () => {
       if (!qrCode) return;
@@ -83,15 +47,6 @@ const QrVerification: React.FC = () => {
         if (userResponse.data.success) {
           setHasSelfieAccess(userResponse.data.data.hasSelfieAccess || false);
         }
-
-        // const fieldsResponse = await api.get('/custom-fields', {
-        //   params: {
-        //     appliesTo: 'verification',
-        //     isActive: 'true'
-        //   }
-        // });
-        
-        // setAvailableCustomFields(fieldsResponse.data.data || []);
       } catch (error) {
         console.error('Error fetching user info:', error);
         toast.error('Invalid QR code');
@@ -290,11 +245,6 @@ const QrVerification: React.FC = () => {
       return;
     }
 
-    if (!areAllRequiredCustomFieldsFilled()) {
-      toast.error('Please fill all custom fields correctly');
-      return;
-    }
-
     setIsLoading(true);
     try {
       // Use api instance for better error handling and retry logic
@@ -304,7 +254,6 @@ const QrVerification: React.FC = () => {
           aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
           location: '',
           dynamicFields: [],
-          customFields: customFields,
           consentAccepted: consentAccepted
         }
       );
@@ -357,8 +306,7 @@ const QrVerification: React.FC = () => {
           aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
           otp: otp,
           transactionId: transactionId,
-          dynamicFields: [],
-          customFields: customFields
+          dynamicFields: []
         }
       );
 
@@ -422,9 +370,6 @@ const QrVerification: React.FC = () => {
                 />
               </div>
 
-              {/* Custom Fields */}
-           
-
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -441,7 +386,7 @@ const QrVerification: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={isLoading || !areAllRequiredCustomFieldsFilled() || Object.keys(customFieldErrors).length > 0}
+                disabled={isLoading}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Sending OTP...' : 'Send OTP'}
