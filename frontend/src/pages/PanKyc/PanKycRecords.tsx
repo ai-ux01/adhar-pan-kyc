@@ -447,7 +447,7 @@ const PanKycRecords: React.FC = () => {
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
                       <div className="flex items-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div> 
                         <span>Processing</span>
                       </div>
                     </th>
