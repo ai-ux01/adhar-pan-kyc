@@ -84,14 +84,14 @@ const QrVerification: React.FC = () => {
           setHasSelfieAccess(userResponse.data.data.hasSelfieAccess || false);
         }
 
-        const fieldsResponse = await api.get('/custom-fields', {
-          params: {
-            appliesTo: 'verification',
-            isActive: 'true'
-          }
-        });
+        // const fieldsResponse = await api.get('/custom-fields', {
+        //   params: {
+        //     appliesTo: 'verification',
+        //     isActive: 'true'
+        //   }
+        // });
         
-        setAvailableCustomFields(fieldsResponse.data.data || []);
+        // setAvailableCustomFields(fieldsResponse.data.data || []);
       } catch (error) {
         console.error('Error fetching user info:', error);
         toast.error('Invalid QR code');
