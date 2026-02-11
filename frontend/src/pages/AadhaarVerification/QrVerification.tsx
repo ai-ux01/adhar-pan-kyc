@@ -38,7 +38,7 @@ const QrVerification: React.FC = () => {
   const [verificationRecordId, setVerificationRecordId] = useState<string | null>(null);
   const [hasSelfieAccess, setHasSelfieAccess] = useState(false);
   const [cameraMode, setCameraMode] = useState(false);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null); 
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   // Validate email format
