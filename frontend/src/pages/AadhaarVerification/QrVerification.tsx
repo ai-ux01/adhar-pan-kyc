@@ -423,35 +423,7 @@ const QrVerification: React.FC = () => {
               </div>
 
               {/* Custom Fields */}
-              {availableCustomFields.length > 0 && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-                  <CustomFieldsRenderer
-                    appliesTo="verification"
-                    values={customFields}
-                    onChange={(fieldName, value) => {
-                      setCustomFields({ ...customFields, [fieldName]: value });
-                      const field = availableCustomFields.find(f => f.fieldName === fieldName);
-                      if (field?.fieldType === 'email') {
-                        if (value && !isValidEmailFormat(value)) {
-                          setCustomFieldErrors({ ...customFieldErrors, [fieldName]: 'Invalid email format' });
-                        } else {
-                          const { [fieldName]: _, ...rest } = customFieldErrors;
-                          setCustomFieldErrors(rest);
-                        }
-                      } else if (field?.fieldType === 'phone') {
-                        if (value && !isValidPhoneNumber(value)) {
-                          setCustomFieldErrors({ ...customFieldErrors, [fieldName]: 'Invalid phone number (must be 10 digits)' });
-                        } else {
-                          const { [fieldName]: _, ...rest } = customFieldErrors;
-                          setCustomFieldErrors(rest);
-                        }
-                      }
-                    }}
-                    errors={customFieldErrors}
-                  />
-                </div>
-              )}
+           
 
               <div className="flex items-center">
                 <input

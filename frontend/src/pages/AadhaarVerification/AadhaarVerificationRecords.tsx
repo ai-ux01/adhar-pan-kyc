@@ -17,7 +17,8 @@ import {
   XMarkIcon,
   FunnelIcon,
   ChevronUpIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  PencilSquareIcon
 } from '@heroicons/react/24/outline';
 
 // Component to load authenticated images
@@ -218,6 +219,9 @@ const AadhaarVerificationRecords: React.FC = () => {
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [dynamicFieldLabels, setDynamicFieldLabels] = useState<string[]>([]);
+  const [editingRecord, setEditingRecord] = useState<VerificationRecord | null>(null);
+  const [editDynamicFields, setEditDynamicFields] = useState<Array<{ label: string; value: string }>>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Extract unique dynamic field labels from records
   const extractDynamicFieldLabels = (records: VerificationRecord[]) => {
@@ -422,6 +426,55 @@ const AadhaarVerificationRecords: React.FC = () => {
   const handleCloseDetails = () => {
     setSelectedRecord(null);
     setShowDetails(false);
+  };
+
+  const handleEditClick = (record: VerificationRecord) => {
+    setEditingRecord(record);
+    setEditDynamicFields(
+      record.dynamicFields && record.dynamicFields.length > 0
+        ? record.dynamicFields.map((f) => ({ label: f.label, value: f.value }))
+        : []
+    );
+  };
+
+  const handleCloseEdit = () => {
+    setEditingRecord(null);
+    setEditDynamicFields([]);
+  };
+
+  const handleEditDynamicFieldChange = (index: number, value: string) => {
+    setEditDynamicFields((prev) => {
+      const next = [...prev];
+      if (next[index]) next[index] = { ...next[index], value };
+      return next;
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+    setIsSavingEdit(true);
+    try {
+      const { data } = await api.patch<{ success: boolean; data: VerificationRecord; message?: string }>(
+        `/aadhaar-verification/records/${editingRecord._id}`,
+        { dynamicFields: editDynamicFields }
+      );
+      if (!data.success || !data.data) {
+        throw new Error('Failed to update');
+      }
+      const updated = data.data as VerificationRecord;
+      setRecords((prev) =>
+        prev.map((r) => (r._id === editingRecord._id ? { ...r, dynamicFields: updated.dynamicFields } : r))
+      );
+      if (selectedRecord?._id === editingRecord._id) {
+        setSelectedRecord((prev) => (prev ? { ...prev, dynamicFields: updated.dynamicFields } : null));
+      }
+      toast.success('Dynamic fields updated');
+      handleCloseEdit();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update dynamic fields');
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   return (
@@ -928,14 +981,24 @@ const AadhaarVerificationRecords: React.FC = () => {
                           );
                         })}
                         <td className="px-4 py-6 whitespace-nowrap text-sm text-gray-900">
-                          <button
-                            onClick={() => handleViewDetails(record)}
-                            className="group relative inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <EyeIcon className="w-4 h-4 mr-2 relative z-10" />
-                            <span className="relative z-10">View Details</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditClick(record)}
+                              className="group relative inline-flex items-center px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-amber-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                              <PencilSquareIcon className="w-4 h-4 mr-2 relative z-10" />
+                              <span className="relative z-10">Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleViewDetails(record)}
+                              className="group relative inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                              <EyeIcon className="w-4 h-4 mr-2 relative z-10" />
+                              <span className="relative z-10">View Details</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1044,7 +1107,14 @@ const AadhaarVerificationRecords: React.FC = () => {
                           </span>
                         </div>
                       )}
-                      <div className="pt-2">
+                      <div className="pt-2 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleEditClick(record)}
+                          className="text-amber-600 hover:text-amber-800 underline text-sm inline-flex items-center"
+                        >
+                          <PencilSquareIcon className="w-4 h-4 mr-1" />
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleViewDetails(record)}
                           className="text-blue-600 hover:text-blue-800 underline text-sm"
@@ -1332,6 +1402,71 @@ const AadhaarVerificationRecords: React.FC = () => {
                   >
                     Close
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Dynamic Fields Modal */}
+        {editingRecord && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 max-w-lg shadow-lg rounded-xl bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Edit Dynamic Fields</h3>
+                  <button
+                    onClick={handleCloseEdit}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                    aria-label="Close"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Record: {editingRecord.name || '-'} · Aadhaar ending {editingRecord.aadhaarNumber?.slice(-4) || '-'}
+                </p>
+                {editDynamicFields.length === 0 ? (
+                  <p className="text-gray-500 py-4">No dynamic fields for this record.</p>
+                ) : (
+                  <div className="space-y-3 mb-6">
+                    {editDynamicFields.map((field, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700 sm:w-32 shrink-0">{field.label}</label>
+                        <input
+                          type="text"
+                          value={field.value}
+                          onChange={(e) => handleEditDynamicFieldChange(index, e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                          placeholder={`Value for ${field.label}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={handleCloseEdit}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  {editDynamicFields.length > 0 && (
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={isSavingEdit}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSavingEdit ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 inline-block mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save'
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

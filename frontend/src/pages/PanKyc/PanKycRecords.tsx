@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
@@ -43,6 +43,13 @@ interface RecordsStats {
   error: number;
 }
 
+interface RecordsPagination {
+  currentPage: number;
+  totalPages: number;
+  totalRecords: number;
+  limit: number;
+}
+
 const PanKycRecords: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
@@ -65,7 +72,6 @@ const PanKycRecords: React.FC = () => {
   }, []);
   const [records, setRecords] = useState<PanKycRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const hasFetchedRecords = useRef(false);
   const [stats, setStats] = useState<RecordsStats>({
     total: 0,
     pending: 0,
@@ -73,118 +79,92 @@ const PanKycRecords: React.FC = () => {
     rejected: 0,
     error: 0
   });
+  const [pagination, setPagination] = useState<RecordsPagination>({
+    currentPage: 1,
+    totalPages: 1,
+    totalRecords: 0,
+    limit: 20
+  });
 
   // Pagination and search
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage] = useState(20);
+  const recordsPerPage = 20;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
 
-  // Fetch all records
-  const fetchRecords = async () => {
-    // Check if user is authenticated
+  const fetchRecords = async (page: number = pagination.currentPage) => {
     if (!isAuthenticated || !user) {
-      showToast({
-        message: 'Please log in to view records',
-        type: 'error'
-      });
+      showToast({ message: 'Please log in to view records', type: 'error' });
       return;
     }
-
-    // Prevent multiple simultaneous calls
-    if (hasFetchedRecords.current || loading) {
-      return;
-    }
-
+    if (loading) return;
     try {
       setLoading(true);
-      const response = await api.get('/pan-kyc/records');
-      if (response.data.success) {
-        setRecords(response.data.data);
-        calculateStats(response.data.data);
-        hasFetchedRecords.current = true;
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', String(recordsPerPage));
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      const response = await api.get(`/pan-kyc/records?${params.toString()}`);
+      const res = response.data;
+      if (res.success) {
+        setRecords(res.data || []);
+        if (res.pagination) {
+          setPagination({
+            currentPage: res.pagination.currentPage,
+            totalPages: res.pagination.totalPages,
+            totalRecords: res.pagination.totalRecords,
+            limit: res.pagination.limit
+          });
+        }
+        if (res.stats) {
+          setStats({
+            total: res.stats.total ?? 0,
+            pending: res.stats.pending ?? 0,
+            verified: res.stats.verified ?? 0,
+            rejected: res.stats.rejected ?? 0,
+            error: res.stats.error ?? 0
+          });
+        }
       }
     } catch (error: any) {
       if (error.response?.status === 401) {
-        showToast({
-          message: 'Authentication failed. Please log in again.',
-          type: 'error'
-        });
-        console.error('Authentication error:', error);
+        showToast({ message: 'Authentication failed. Please log in again.', type: 'error' });
       } else {
-        showToast({
-          message: 'Failed to fetch records',
-          type: 'error'
-        });
-        console.error('Error fetching records:', error);
+        showToast({ message: 'Failed to fetch records', type: 'error' });
       }
-      hasFetchedRecords.current = false; // Reset on error to allow retry
+      console.error('Error fetching records:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const refreshRecords = async () => {
-    hasFetchedRecords.current = false;
-    await fetchRecords();
+  const refreshRecords = () => fetchRecords(pagination.currentPage);
+
+  // Initial load and refetch when filters change (reset to page 1)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    fetchRecords(1);
+  }, [isAuthenticated, user, statusFilter, dateFilter]);
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > pagination.totalPages) return;
+    fetchRecords(page);
   };
 
-  // Calculate statistics
-  const calculateStats = (data: PanKycRecord[]) => {
-    const verified = data.filter(r => r.status === 'verified').length;
-    const rejected = data.filter(r => r.status === 'rejected').length;
-    
-    const stats = {
-      total: verified + rejected, // Only count verified + rejected
-      pending: 0, // Removed pending count
-      verified: verified,
-      rejected: rejected,
-      error: 0 // Removed error count
-    };
-    setStats(stats);
-  };
-
-  // Filter records based on search and filters - only show verified and rejected records
+  // Client-side search only on current page (server already applied status/date filters)
   const filteredRecords = records.filter(record => {
-    // Only show verified and rejected records
-    const isProcessed = record.status === 'verified' || record.status === 'rejected';
-    
-    const matchesSearch = 
-      record.panNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    
-    let matchesDate = true;
-    if (dateFilter !== 'all') {
-      const recordDate = new Date(record.createdAt);
-      const now = new Date();
-      const diffDays = Math.floor((now.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      switch (dateFilter) {
-        case 'today':
-          matchesDate = diffDays === 0;
-          break;
-        case 'week':
-          matchesDate = diffDays <= 7;
-          break;
-        case 'month':
-          matchesDate = diffDays <= 30;
-          break;
-      }
-    }
-    
-    return isProcessed && matchesSearch && matchesStatus && matchesDate;
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      record.panNumber?.toLowerCase().includes(term) ||
+      record.name?.toLowerCase().includes(term) ||
+      record.batchId?.toLowerCase().includes(term)
+    );
   });
 
-  // Pagination
-  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
-  const paginatedRecords = filteredRecords.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage
-  );
+  const totalPages = pagination.totalPages;
+  const paginatedRecords = filteredRecords;
 
   // Download CSV
   const downloadCSV = () => {
@@ -261,17 +241,6 @@ const PanKycRecords: React.FC = () => {
       minute: '2-digit'
     });
   };
-
-  useEffect(() => {
-    if (isAuthenticated && user && !hasFetchedRecords.current) {
-      fetchRecords();
-    }
-  }, [isAuthenticated, user]);
-
-  // Reset fetch flag when user changes
-  useEffect(() => {
-    hasFetchedRecords.current = false;
-  }, [user?._id]);
 
   return (
     <div className="space-y-6">
@@ -556,28 +525,28 @@ const PanKycRecords: React.FC = () => {
             </div>
 
             {/* Enhanced Pagination */}
-            {totalPages > 1 && (
+            {pagination.totalRecords > 0 && (
               <div className="px-6 py-6 border-t border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-blue-700">
-                    Showing <span className="font-semibold">{((currentPage - 1) * recordsPerPage) + 1}</span> to{' '}
-                    <span className="font-semibold">{Math.min(currentPage * recordsPerPage, filteredRecords.length)}</span> of{' '}
-                    <span className="font-semibold">{filteredRecords.length}</span> records
+                    Showing <span className="font-semibold">{((pagination.currentPage - 1) * recordsPerPage) + 1}</span> to{' '}
+                    <span className="font-semibold">{Math.min(pagination.currentPage * recordsPerPage, pagination.totalRecords)}</span> of{' '}
+                    <span className="font-semibold">{pagination.totalRecords}</span> records
                   </div>
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1 || loading}
                       className="px-4 py-2 text-sm font-medium border border-blue-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors duration-200"
                     >
                       Previous
                     </button>
                     <span className="px-4 py-2 text-sm font-medium text-blue-700 bg-white rounded-xl border border-blue-200">
-                      {currentPage} of {totalPages}
+                      {pagination.currentPage} of {pagination.totalPages}
                     </span>
                     <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.totalPages || loading}
                       className="px-4 py-2 text-sm font-medium border border-blue-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors duration-200"
                     >
                       Next

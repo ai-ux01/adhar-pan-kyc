@@ -12,28 +12,13 @@ const logger = require('../utils/logger');
 const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadhaarVerificationService');
 const { getAllowedOrigin } = require('../utils/corsHelper');
 
-// Configure multer for selfie uploads
-const selfieStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../../uploads/selfies');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'selfie-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for selfie uploads (memory storage - save to MongoDB, not disk)
 const selfieUpload = multer({
-  storage: selfieStorage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: function (req, file, cb) {
-    // Accept only image files
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -150,6 +135,11 @@ router.get('/records', protect, async (req, res) => {
       }
     });
 
+    // Don't send selfie image data in list response (fetch via GET /records/:id/selfie)
+    decryptedRecords.forEach(r => {
+      if (r.selfie && r.selfie.data) delete r.selfie.data;
+    });
+
     const responseData = {
       success: true,
       data: decryptedRecords,
@@ -190,9 +180,70 @@ router.get('/records', protect, async (req, res) => {
   }
 });
 
+// Update only dynamicFields for a record (PATCH). GET to this path is not supported.
+router.route('/records/:id')
+  .patch(protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dynamicFields } = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid record ID'
+      });
+    }
 
+    const record = await AadhaarVerification.findById(id);
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Verification record not found'
+      });
+    }
 
+    if (record.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this record'
+      });
+    }
+
+    const normalizedFields = Array.isArray(dynamicFields)
+      ? dynamicFields
+          .filter((f) => f && typeof f === 'object' && f.label != null)
+          .map((f) => ({
+            label: String(f.label).trim(),
+            value: f.value != null ? String(f.value).trim() : ''
+          }))
+      : [];
+
+    record.dynamicFields = normalizedFields;
+    await record.save({ validateBeforeSave: false });
+
+    const decrypted = record.decryptData();
+    res.json({
+      success: true,
+      data: decrypted,
+      message: 'Dynamic fields updated'
+    });
+  } catch (error) {
+    logger.error('Error updating record dynamic fields:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update dynamic fields',
+      error: error.message
+    });
+  }
+  })
+  .all((req, res) => {
+    res.set('Allow', 'PATCH');
+    res.status(405).json({
+      success: false,
+      error: 'Method not allowed',
+      message: 'Use PATCH to update dynamic fields for this record'
+    });
+  });
 
 // Single Aadhaar verification endpoint - Send OTP
 router.post('/verify-single', protect, async (req, res) => {
@@ -386,89 +437,64 @@ router.post('/verify-otp', protect, async (req, res) => {
   }
 });
 
-// Upload selfie for a verification record
+// Upload selfie for a verification record (stored in MongoDB)
 router.post('/records/:id/selfie', protect, selfieUpload.single('selfie'), async (req, res) => {
   try {
     const { id } = req.params;
-    
-    if (!req.file) {
+
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
         message: 'No selfie file provided'
       });
     }
 
-    // Find the verification record
     const verificationRecord = await AadhaarVerification.findById(id);
-    
     if (!verificationRecord) {
-      // Clean up uploaded file if record doesn't exist
-      fs.unlinkSync(req.file.path);
       return res.status(404).json({
         success: false,
         message: 'Verification record not found'
       });
     }
 
-    // Check if the record belongs to the user
     if (verificationRecord.userId.toString() !== req.user.id.toString()) {
-      // Clean up uploaded file if unauthorized
-      fs.unlinkSync(req.file.path);
       return res.status(403).json({
         success: false,
         message: 'Not authorized to upload selfie for this record'
       });
     }
 
-    // Check if user has selfie-upload module access
-    const User = require('../models/User');
     const user = await User.findById(req.user.id);
     if (!user || (user.role !== 'admin' && (!user.moduleAccess || !user.moduleAccess.includes('selfie-upload')))) {
-      // Clean up uploaded file if no access
-      fs.unlinkSync(req.file.path);
       return res.status(403).json({
         success: false,
         message: 'Selfie upload module is not enabled for your account'
       });
     }
 
-    // Delete old selfie if exists
-    if (verificationRecord.selfie && verificationRecord.selfie.path) {
-      const oldPath = path.join(__dirname, '..', '..', verificationRecord.selfie.path);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
-
-    // Update verification record with selfie using findByIdAndUpdate to avoid validation issues with encrypted fields
+    const filename = req.file.originalname || `selfie-${Date.now()}${path.extname(req.file.originalname || '')}`;
     await AadhaarVerification.findByIdAndUpdate(
       id,
       {
         $set: {
           selfie: {
-            filename: req.file.filename,
-            originalName: req.file.originalname,
-            path: req.file.path.replace(/^.*uploads/, 'uploads'), // Store relative path
+            filename,
+            originalName: req.file.originalname || filename,
+            path: null,
+            data: req.file.buffer,
             mimetype: req.file.mimetype,
             size: req.file.size,
             uploadedAt: new Date()
           }
         }
       },
-      { 
-        runValidators: false, // Skip validation for encrypted fields
-        new: true 
-      }
+      { runValidators: false, new: false }
     );
 
-    // Fetch the updated record to get the selfie data
-    const updatedRecord = await AadhaarVerification.findById(id);
-
-    // Log the event
     await logAadhaarVerificationEvent('selfie_uploaded', req.user.id, {
       recordId: id,
       batchId: verificationRecord.batchId,
-      fileName: req.file.filename
+      fileName: filename
     }, req);
 
     res.json({
@@ -476,21 +502,11 @@ router.post('/records/:id/selfie', protect, selfieUpload.single('selfie'), async
       message: 'Selfie uploaded successfully',
       data: {
         recordId: id,
-        selfie: updatedRecord?.selfie
+        selfie: { filename, originalName: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, uploadedAt: new Date() }
       }
     });
   } catch (error) {
     logger.error('Error uploading selfie:', error);
-    
-    // Clean up uploaded file on error
-    if (req.file && req.file.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (unlinkError) {
-        logger.error('Error cleaning up uploaded file:', unlinkError);
-      }
-    }
-    
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to upload selfie'
@@ -498,98 +514,70 @@ router.post('/records/:id/selfie', protect, selfieUpload.single('selfie'), async
   }
 });
 
-// Public selfie upload for QR code flow (no auth required)
+// Public selfie upload for QR code flow (no auth required, stored in MongoDB)
 router.post('/records/:id/selfie-public', selfieUpload.single('selfie'), async (req, res) => {
   try {
     const { id } = req.params;
-    
-    if (!req.file) {
+
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
         message: 'No selfie file provided'
       });
     }
 
-    // Find the verification record
     const verificationRecord = await AadhaarVerification.findById(id);
-    
     if (!verificationRecord) {
-      fs.unlinkSync(req.file.path);
       return res.status(404).json({
         success: false,
         message: 'Verification record not found'
       });
     }
 
-    // Only allow public uploads for QR code flow (batchId starts with 'qr-')
     if (!verificationRecord.batchId || !verificationRecord.batchId.startsWith('qr-')) {
-      fs.unlinkSync(req.file.path);
       return res.status(403).json({
         success: false,
         message: 'Public selfie upload only allowed for QR code verifications'
       });
     }
 
-    // Get user to check selfie access
     const user = await User.findById(verificationRecord.userId);
     if (!user || (user.role !== 'admin' && (!user.moduleAccess || !user.moduleAccess.includes('selfie-upload')))) {
-      fs.unlinkSync(req.file.path);
       return res.status(403).json({
         success: false,
         message: 'Selfie upload module is not enabled for this user'
       });
     }
 
-    // Delete old selfie if exists
-    if (verificationRecord.selfie && verificationRecord.selfie.path) {
-      const oldPath = path.join(__dirname, '..', '..', verificationRecord.selfie.path);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
-
-    // Update verification record with selfie
+    const filename = req.file.originalname || `selfie-${Date.now()}${path.extname(req.file.originalname || '')}`;
     await AadhaarVerification.findByIdAndUpdate(
       id,
       {
         $set: {
           selfie: {
-            filename: req.file.filename,
-            originalName: req.file.originalname,
-            path: req.file.path.replace(/^.*uploads/, 'uploads'),
+            filename,
+            originalName: req.file.originalname || filename,
+            path: null,
+            data: req.file.buffer,
             mimetype: req.file.mimetype,
             size: req.file.size,
             uploadedAt: new Date()
           }
         }
       },
-      { 
-        runValidators: false,
-        new: true 
-      }
+      { runValidators: false, new: false }
     );
-
-    const updatedRecord = await AadhaarVerification.findById(id);
 
     res.json({
       success: true,
       message: 'Selfie uploaded successfully',
       data: {
         recordId: id,
-        selfie: updatedRecord?.selfie
+        selfie: { filename, originalName: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size, uploadedAt: new Date() }
       }
     });
   } catch (error) {
     logger.error('Error uploading selfie (public):', error);
-    
-    if (req.file && req.file.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (unlinkError) {
-        logger.error('Error cleaning up uploaded file:', unlinkError);
-      }
-    }
-    
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to upload selfie'
@@ -597,13 +585,12 @@ router.post('/records/:id/selfie-public', selfieUpload.single('selfie'), async (
   }
 });
 
-// Get selfie for a verification record
+// Get selfie for a verification record (from MongoDB or legacy disk path)
 router.get('/records/:id/selfie', protect, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const verificationRecord = await AadhaarVerification.findById(id);
-    
+
+    const verificationRecord = await AadhaarVerification.findById(id).select('userId selfie');
     if (!verificationRecord) {
       return res.status(404).json({
         success: false,
@@ -611,11 +598,8 @@ router.get('/records/:id/selfie', protect, async (req, res) => {
       });
     }
 
-    // Check if the record belongs to the user or user is admin
-    const User = require('../models/User');
     const user = await User.findById(req.user.id);
     const isAdmin = user && user.role === 'admin';
-    
     if (!isAdmin && verificationRecord.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({
         success: false,
@@ -623,37 +607,45 @@ router.get('/records/:id/selfie', protect, async (req, res) => {
       });
     }
 
-    if (!verificationRecord.selfie || !verificationRecord.selfie.path) {
+    const selfie = verificationRecord.selfie;
+    if (!selfie) {
       return res.status(404).json({
         success: false,
         message: 'Selfie not found for this record'
       });
     }
 
-    // Resolve the absolute path
-    const absolutePath = path.resolve(__dirname, '..', '..', verificationRecord.selfie.path);
-    
-    // Check if file exists
-    if (!fs.existsSync(absolutePath)) {
-      logger.warn(`Selfie file not found: ${absolutePath} for record ${id}`);
-      return res.status(404).json({
-        success: false,
-        message: 'Selfie file not found on server'
+    // Prefer image data stored in MongoDB
+    if (selfie.data && Buffer.isBuffer(selfie.data)) {
+      res.set({
+        'Content-Type': selfie.mimetype || 'image/jpeg',
+        'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.origin),
+        'Access-Control-Allow-Credentials': 'true',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Cross-Origin-Embedder-Policy': 'unsafe-none'
       });
+      return res.send(selfie.data);
     }
 
-    // Set headers for image serving
-    res.set({
-      'Content-Type': verificationRecord.selfie.mimetype || 'image/jpeg',
-      'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.origin),
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Cross-Origin-Embedder-Policy': 'unsafe-none'
+    // Fallback: serve from legacy disk path
+    if (selfie.path) {
+      const absolutePath = path.resolve(__dirname, '..', '..', selfie.path);
+      if (fs.existsSync(absolutePath)) {
+        res.set({
+          'Content-Type': selfie.mimetype || 'image/jpeg',
+          'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.origin),
+          'Access-Control-Allow-Credentials': 'true',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Cross-Origin-Embedder-Policy': 'unsafe-none'
+        });
+        return res.sendFile(absolutePath);
+      }
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: 'Selfie not found for this record'
     });
-    
-    res.sendFile(absolutePath);
   } catch (error) {
     logger.error('Error serving selfie:', error);
     res.status(500).json({

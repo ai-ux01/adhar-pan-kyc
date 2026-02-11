@@ -16240,3 +16240,71 @@
   timestamp: '2025-11-05 14:21:11',
   [Symbol(errorLabels)]: Set(0) {}
 }
+{
+  service: 'kyc-aadhaar-api',
+  errors: {
+    gender: ValidatorError: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.
+        at validate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1365:13)
+        at SchemaType.doValidate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1349:7)
+        at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3004:18
+        at process.processTicksAndRejections (node:internal/process/task_queues:85:11) {
+      properties: {
+        validator: [Function (anonymous)],
+        message: '`efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.',
+        type: 'enum',
+        enumValues: [ 'M', 'F', 'O' ],
+        path: 'gender',
+        fullPath: undefined,
+        value: 'efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936'
+      },
+      kind: 'enum',
+      path: 'gender',
+      value: 'efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936',
+      reason: undefined,
+      Symbol(mongoose:validatorError): true
+    }
+  },
+  _message: 'AadhaarVerification validation failed',
+  level: 'error',
+  message: 'Error updating record dynamic fields: AadhaarVerification validation failed: gender: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.',
+  stack: 'ValidationError: AadhaarVerification validation failed: gender: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.\n' +
+    '    at Document.invalidate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3219:32)\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3012:17\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1368:9\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)',
+  timestamp: '2026-02-11 21:16:52'
+}
+{
+  service: 'kyc-aadhaar-api',
+  errors: {
+    gender: ValidatorError: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.
+        at validate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1365:13)
+        at SchemaType.doValidate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1349:7)
+        at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3004:18
+        at process.processTicksAndRejections (node:internal/process/task_queues:85:11) {
+      properties: {
+        validator: [Function (anonymous)],
+        message: '`efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.',
+        type: 'enum',
+        enumValues: [ 'M', 'F', 'O' ],
+        path: 'gender',
+        fullPath: undefined,
+        value: 'efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936'
+      },
+      kind: 'enum',
+      path: 'gender',
+      value: 'efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936',
+      reason: undefined,
+      Symbol(mongoose:validatorError): true
+    }
+  },
+  _message: 'AadhaarVerification validation failed',
+  level: 'error',
+  message: 'Error updating record dynamic fields: AadhaarVerification validation failed: gender: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.',
+  stack: 'ValidationError: AadhaarVerification validation failed: gender: `efad90579498423548c049b82ddc3f63:68176e39b75518fd4e3430f636091936` is not a valid enum value for path `gender`.\n' +
+    '    at Document.invalidate (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3219:32)\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/document.js:3012:17\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongoose/lib/schematype.js:1368:9\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)',
+  timestamp: '2026-02-11 21:17:48'
+}

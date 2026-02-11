@@ -97,36 +97,96 @@ router.get('/batches', protect, async (req, res) => {
   }
 });
 
-// Get all records for a user
+// Get records for a user with server-side pagination (faster: only load one page and decrypt that page)
 router.get('/records', protect, async (req, res) => {
+  const startTime = Date.now();
   try {
-    const records = await PanKyc.find({ userId: req.user.id })
-      .sort({ createdAt: -1 })
-      .lean();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const statusFilter = req.query.status || 'all';
+    const dateFilter = req.query.dateFilter || 'all';
+    const skip = (page - 1) * limit;
 
-    // Decrypt sensitive data for each record
-    const decryptedRecords = records.map(record => {
+    const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
+    if (statusFilter !== 'all') {
+      match.status = statusFilter;
+    }
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      let from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+      if (dateFilter === 'today') {
+        match.createdAt = { $gte: from, $lte: now };
+      } else if (dateFilter === 'week') {
+        from.setDate(from.getDate() - 7);
+        match.createdAt = { $gte: from, $lte: now };
+      } else if (dateFilter === 'month') {
+        from.setMonth(from.getMonth() - 1);
+        match.createdAt = { $gte: from, $lte: now };
+      }
+    }
+
+    const [facetResult] = await PanKyc.aggregate([
+      { $match: match },
+      {
+        $facet: {
+          totalCount: [{ $count: 'count' }],
+          statusCounts: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          records: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit }
+          ]
+        }
+      }
+    ]);
+
+    const totalRecords = facetResult.totalCount[0] ? facetResult.totalCount[0].count : 0;
+    const statusCounts = (facetResult.statusCounts || []).reduce((acc, { _id, count }) => {
+      acc[_id] = count;
+      return acc;
+    }, {});
+    const rawRecords = facetResult.records || [];
+
+    const decryptedRecords = rawRecords.map(record => {
       try {
-        // Create a temporary PanKyc instance to use the decryptData method
         const tempRecord = new PanKyc(record);
         return tempRecord.decryptData();
       } catch (error) {
-        console.error('Decryption error for record:', record._id, error.message);
-        // Return original record if decryption fails
+        logger.error('Decryption error for record:', record._id, error.message);
         return record;
       }
     });
 
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     res.json({
       success: true,
-      data: decryptedRecords
+      data: decryptedRecords,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalRecords / limit) || 1,
+        totalRecords,
+        limit
+      },
+      stats: {
+        total: totalRecords,
+        verified: statusCounts.verified || 0,
+        rejected: statusCounts.rejected || 0,
+        pending: statusCounts.pending || 0,
+        error: statusCounts.error || 0
+      },
+      _meta: { responseTimeMs: durationMs }
     });
   } catch (error) {
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     logger.error('Error fetching PAN KYC records:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch records',
-      error: error.message
+      error: error.message,
+      _meta: { responseTimeMs: durationMs }
     });
   }
 });
