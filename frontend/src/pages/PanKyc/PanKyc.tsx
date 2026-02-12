@@ -1069,53 +1069,36 @@ const PanKyc: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        // Import xlsx dynamically
-                        import('xlsx').then((XLSX) => {
-                          // Create sample data
-                          const sampleData = [
-                            ['panNumber', 'name', 'dateOfBirth'],
-                            ['ABCDE1234F', 'John Doe', '15/03/1990'],
-                            ['FGHIJ5678K', 'Jane Smith', '22/11/1985'],
-                            ['LMNOP9012Q', 'Bob Johnson', '08/07/1992']
-                          ];
-                          
-                          // Create workbook and worksheet
-                          const wb = XLSX.utils.book_new();
-                          const ws = XLSX.utils.aoa_to_sheet(sampleData);
-                          
-                          // Set column widths for better readability
-                          ws['!cols'] = [
-                            { wch: 15 }, // panNumber
-                            { wch: 20 }, // name
-                            { wch: 15 }  // dateOfBirth
-                          ];
-                          
-                          // Add worksheet to workbook
-                          XLSX.utils.book_append_sheet(wb, ws, 'PAN KYC Data');
-                          
-                          // Generate Excel file buffer
-                          const excelBuffer = XLSX.write(wb, { 
-                            type: 'array', 
-                            bookType: 'xlsx',
-                            cellStyles: true
-                          });
-                          
-                          // Create blob and download
-                          const blob = new Blob([excelBuffer], { 
-                            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-                          });
-                          const url = window.URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          link.setAttribute('download', 'sample_pan_kyc.xlsx');
-                          document.body.appendChild(link);
-                          link.click();
-                          link.remove();
-                          window.URL.revokeObjectURL(url);
-                        }).catch((error) => {
-                          console.error('Error generating Excel file:', error);
-                          alert('Failed to generate sample file. Please try again.');
-                        });
+                        // Create sample Excel content
+                        const sampleData = [
+                          ['panNumber', 'name', 'dateOfBirth'],
+                          ['ABCDE1234F', 'John Doe', '15/03/1990'],
+                          ['FGHIJ5678K', 'Jane Smith', '22/11/1985'],
+                          ['LMNOP9012Q', 'Bob Johnson', '08/07/1992']
+                        ];
+                        
+                        // Convert to Excel format (XLSX)
+                        const xlsxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
+<Worksheet ss:Name="Sheet1">
+<Table>
+${sampleData.map(row => 
+  `<Row>${row.map(cell => `<Cell><Data ss:Type="String">${cell}</Data></Cell>`).join('')}</Row>`
+).join('')}
+</Table>
+</Worksheet>
+</Workbook>`;
+                        
+                        // Create and download file
+                        const blob = new Blob([xlsxContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.setAttribute('download', 'sample_pan_kyc.xlsx');
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
                       }}
                       className="inline-flex items-center px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 transition-colors"
                     >

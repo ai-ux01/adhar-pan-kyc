@@ -1,12 +1,2 @@
 node_modules
 .vercel
-
-# AWS Amplify
-amplify/team-provider-info.json
-amplify/.config/local-*
-amplify/backend/amplify-meta.json
-amplify/backend/.temp/
-amplify/#current-cloud-backend/
-amplify/.config/project-config.json
-.amplifyrc
-aws-exports.js

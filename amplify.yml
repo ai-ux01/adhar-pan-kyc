@@ -17,5 +17,4 @@ frontend:
     paths:
       - frontend/node_modules/**/*
       - frontend/.npm/**/*
-# Note: Backend Lambda functions are deployed separately using 'amplify push'
-# This file is for frontend hosting only
+

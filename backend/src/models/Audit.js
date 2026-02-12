@@ -42,7 +42,7 @@ const AuditSchema = new mongoose.Schema({
       'api_rate_limit_exceeded', 'security_alert',
       
       // Admin events
-      'admin_action', 'settings_changed', 'api_credentials_updated', 'qr_code_generated', 'qr_code_regenerated',
+      'admin_action', 'settings_changed', 'api_credentials_updated',
       
       // Archival events
       'archival_process_completed', 'archival_process_failed', 'record_marked_for_deletion',
@@ -115,15 +115,6 @@ AuditSchema.index({ createdAt: -1 });
 // Static method to log audit events
 AuditSchema.statics.logEvent = async function(data) {
   try {
-    // Validate action is in enum before attempting to save
-    const validActions = this.schema.path('action').enumValues;
-    if (data.action && !validActions.includes(data.action)) {
-      const logger = require('../utils/logger');
-      logger.warn(`Invalid audit action: ${data.action}. Valid actions: ${validActions.join(', ')}`);
-      // Use a fallback action if the provided one is invalid
-      data.action = 'admin_action'; // Fallback to generic admin action
-    }
-    
     const auditEntry = new this({
       userId: data.userId,
       action: data.action,
@@ -144,10 +135,8 @@ AuditSchema.statics.logEvent = async function(data) {
     await auditEntry.save();
     return auditEntry;
   } catch (error) {
-    const logger = require('../utils/logger');
-    logger.error('Failed to log audit event:', error.message || error);
+    console.error('Failed to log audit event:', error);
     // Don't throw error as audit logging should not break main functionality
-    return null;
   }
 };
 

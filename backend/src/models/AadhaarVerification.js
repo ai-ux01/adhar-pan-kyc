@@ -68,7 +68,8 @@ const AadhaarVerificationSchema = new mongoose.Schema({
   selfie: {
     filename: String,
     originalName: String,
-    path: String,
+    path: String, // legacy: file on disk (kept for backward compatibility)
+    data: Buffer,  // image stored in MongoDB
     mimetype: String,
     size: Number,
     uploadedAt: {

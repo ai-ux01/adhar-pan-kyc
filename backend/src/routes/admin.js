@@ -2332,14 +2332,13 @@ router.get('/users/:id/qr-code', protect, authorize('admin'), async (req, res) =
       // Generate unique QR code
       const qrCodeString = crypto.randomBytes(32).toString('hex');
       
-      // Create QR code URL - use helper function for consistent URL resolution
-      const { getFrontendUrl } = require('../utils/corsHelper');
-      const frontendUrl = getFrontendUrl();
+      // Create QR code URL - use production URL in production, localhost in development
+      // Priority: FRONTEND_URL env var > Custom domain > localhost
+      const frontendUrl = process.env.FRONTEND_URL || 
+        (process.env.NODE_ENV === 'production' 
+          ? 'https://www.avihridsys.in' 
+          : 'http://localhost:3000');
       const qrCodeUrl = `${frontendUrl}/verify/qr/${qrCodeString}`;
-      
-      // Log for debugging
-      logger.info(`Admin QR Code Generation: frontendUrl=${frontendUrl}, qrCodeUrl=${qrCodeUrl}`);
-      logger.info(`Admin QR Code Env: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}, FRONTEND_URL=${process.env.FRONTEND_URL}`);
 
       // Generate QR code image
       const qrCodeDataUrl = await QRCode.toDataURL(qrCodeUrl, {
@@ -2357,22 +2356,16 @@ router.get('/users/:id/qr-code', protect, authorize('admin'), async (req, res) =
       };
       await user.save();
 
-      // Log audit event (with error handling)
-      try {
-        await logEvent({
-          userId: req.user.id,
-          action: 'qr_code_generated',
-          module: 'admin',
-          resource: 'user',
-          resourceId: user._id,
-          details: `Generated QR code for user: ${user.email}`,
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
-        });
-      } catch (auditError) {
-        // Log error but don't fail the request
-        logger.warn('Failed to log QR code generation audit event:', auditError.message);
-      }
+      await logEvent({
+        userId: req.user.id,
+        action: 'qr_code_generated',
+        module: 'admin',
+        resource: 'user',
+        resourceId: user._id,
+        details: `Generated QR code for user: ${user.email}`,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
 
       return res.json({
         success: true,
@@ -2389,14 +2382,13 @@ router.get('/users/:id/qr-code', protect, authorize('admin'), async (req, res) =
       });
     }
 
-    // Return existing QR code - use helper function for consistent URL resolution
-    const { getFrontendUrl } = require('../utils/corsHelper');
-    const frontendUrl = getFrontendUrl();
+    // Return existing QR code - use production URL in production, localhost in development
+    // Priority: FRONTEND_URL env var > Amplify URL > Vercel URL > localhost
+    const frontendUrl = process.env.FRONTEND_URL || 
+      (process.env.NODE_ENV === 'production' 
+        ? 'https://www.avihridsys.in' 
+        : 'http://localhost:3000');
     const qrCodeUrl = `${frontendUrl}/verify/qr/${user.qrCode.code}`;
-    
-    // Log for debugging
-    logger.info(`Admin QR Code Return: frontendUrl=${frontendUrl}, qrCodeUrl=${qrCodeUrl}`);
-    logger.info(`Admin QR Code Env: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}, FRONTEND_URL=${process.env.FRONTEND_URL}`);
     const qrCodeDataUrl = await QRCode.toDataURL(qrCodeUrl, {
       errorCorrectionLevel: 'H',
       type: 'image/png',

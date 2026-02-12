@@ -97,128 +97,97 @@ router.get('/batches', protect, async (req, res) => {
   }
 });
 
-// Get all records for a user
+// Get records for a user with server-side pagination (faster: only load one page and decrypt that page)
 router.get('/records', protect, async (req, res) => {
   const startTime = Date.now();
-  let requestTimeout;
-  
   try {
-    // Set a timeout to prevent hanging requests (30 seconds)
-    requestTimeout = setTimeout(() => {
-      if (!res.headersSent) {
-        logger.warn('Request timeout for /pan-kyc/records');
-        res.status(504).json({
-          success: false,
-          message: 'Request timeout. Please try again with pagination (use ?page=1&limit=50)',
-          error: 'Request took too long to process'
-        });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const statusFilter = req.query.status || 'all';
+    const dateFilter = req.query.dateFilter || 'all';
+    const skip = (page - 1) * limit;
+
+    const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
+    if (statusFilter !== 'all') {
+      match.status = statusFilter;
+    }
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      let from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+      if (dateFilter === 'today') {
+        match.createdAt = { $gte: from, $lte: now };
+      } else if (dateFilter === 'week') {
+        from.setDate(from.getDate() - 7);
+        match.createdAt = { $gte: from, $lte: now };
+      } else if (dateFilter === 'month') {
+        from.setMonth(from.getMonth() - 1);
+        match.createdAt = { $gte: from, $lte: now };
       }
-    }, 30000); // 30 second timeout
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Reduced default to 50 for better performance
-    const maxLimit = 500; // Reduced max limit
-    const actualLimit = Math.min(limit, maxLimit);
-    const skip = (page - 1) * actualLimit;
-    const search = req.query.search || '';
-    const status = req.query.status || '';
-    const sortBy = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder || 'desc';
-
-    logger.info(`Fetching PAN KYC records: page=${page}, limit=${actualLimit}, userId=${req.user.id}`);
-
-    // Build query
-    let query = { userId: req.user.id };
-    
-    // Add search filter
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { panNumber: searchRegex },
-        { name: searchRegex },
-        { fatherName: searchRegex }
-      ];
-    }
-    
-    // Add status filter
-    if (status) {
-      query.status = status;
     }
 
-    // Get total count for pagination (with timeout protection)
-    const totalRecords = await PanKyc.countDocuments(query).maxTimeMS(5000);
-    const totalPages = Math.ceil(totalRecords / actualLimit);
-
-    // Build sort object
-    const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
-    // Get paginated records (with timeout protection)
-    const records = await PanKyc.find(query)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(actualLimit)
-      .maxTimeMS(10000) // 10 second timeout for query
-      .lean();
-
-    logger.info(`Found ${records.length} records, starting decryption...`);
-
-    // Decrypt sensitive data in parallel for better performance
-    const decryptedRecords = await Promise.all(
-      records.map(async (record) => {
-        try {
-          // Create a temporary PanKyc instance to use the decryptData method
-          const tempRecord = new PanKyc(record);
-          return tempRecord.decryptData();
-        } catch (error) {
-          logger.error(`Decryption error for record ${record._id}:`, error.message);
-          // Return original record with encrypted fields marked
-          return {
-            ...record,
-            panNumber: record.panNumber ? '[ENCRYPTED]' : '',
-            name: record.name ? '[ENCRYPTED]' : '',
-            dateOfBirth: record.dateOfBirth ? '[ENCRYPTED]' : '',
-            fatherName: record.fatherName ? '[ENCRYPTED]' : ''
-          };
+    const [facetResult] = await PanKyc.aggregate([
+      { $match: match },
+      {
+        $facet: {
+          totalCount: [{ $count: 'count' }],
+          statusCounts: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          records: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit }
+          ]
         }
-      })
-    );
+      }
+    ]);
 
-    const processingTime = Date.now() - startTime;
-    logger.info(`Records fetched and decrypted in ${processingTime}ms`);
+    const totalRecords = facetResult.totalCount[0] ? facetResult.totalCount[0].count : 0;
+    const statusCounts = (facetResult.statusCounts || []).reduce((acc, { _id, count }) => {
+      acc[_id] = count;
+      return acc;
+    }, {});
+    const rawRecords = facetResult.records || [];
 
-    // Clear timeout since we're responding
-    clearTimeout(requestTimeout);
+    const decryptedRecords = rawRecords.map(record => {
+      try {
+        const tempRecord = new PanKyc(record);
+        return tempRecord.decryptData();
+      } catch (error) {
+        logger.error('Decryption error for record:', record._id, error.message);
+        return record;
+      }
+    });
 
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     res.json({
       success: true,
       data: decryptedRecords,
       pagination: {
         currentPage: page,
-        totalPages: totalPages,
-        totalRecords: totalRecords,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-        limit: actualLimit
+        totalPages: Math.ceil(totalRecords / limit) || 1,
+        totalRecords,
+        limit
       },
-      processingTime: processingTime
+      stats: {
+        total: totalRecords,
+        verified: statusCounts.verified || 0,
+        rejected: statusCounts.rejected || 0,
+        pending: statusCounts.pending || 0,
+        error: statusCounts.error || 0
+      },
+      _meta: { responseTimeMs: durationMs }
     });
   } catch (error) {
-    // Clear timeout on error
-    if (requestTimeout) {
-      clearTimeout(requestTimeout);
-    }
-    
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     logger.error('Error fetching PAN KYC records:', error);
-    
-    // Don't send response if already sent
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch records',
-        error: error.message
-      });
-    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch records',
+      error: error.message,
+      _meta: { responseTimeMs: durationMs }
+    });
   }
 });
 

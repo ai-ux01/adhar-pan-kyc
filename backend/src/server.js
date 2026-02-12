@@ -10,7 +10,6 @@ const connectDB = require('./config/database');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const { getAllowedOrigins, getAllowedOrigin: getCorsOrigin } = require('./utils/corsHelper');
-const allowedOrigins = getAllowedOrigins();
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -25,28 +24,6 @@ const customFieldsRoutes = require('./routes/customFields');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Trust proxy - Required for Render and other reverse proxies
-// This allows Express to correctly identify client IPs from X-Forwarded-For headers
-if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', true);
-  logger.info('Trust proxy enabled for reverse proxy support (Render/Vercel/etc)');
-} else if (process.env.TRUST_PROXY === 'false') {
-  app.set('trust proxy', false);
-} else {
-  // Auto-detect: if we're on Render, Vercel, or Railway, enable trust proxy
-  const isCloudPlatform = !!(
-    process.env.RENDER ||
-    process.env.RENDER_SERVICE_NAME ||
-    process.env.VERCEL ||
-    process.env.VERCEL_URL ||
-    process.env.RAILWAY_ENVIRONMENT
-  );
-  if (isCloudPlatform) {
-    app.set('trust proxy', true);
-    logger.info('Trust proxy auto-enabled (detected cloud platform)');
-  }
-}
 
 // Connect to MongoDB
 connectDB();
@@ -76,59 +53,44 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow server-to-server, curl, Postman
+    const allowedOrigins = getAllowedOrigins();
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
-
-    // Normalize origin for comparison
-    const normalizedOrigin = origin.replace(/\/+$/, '');
-
-    const isAllowed = allowedOrigins.some((allowedOrigin) => {
-      if (typeof allowedOrigin === "string") {
-        const normalizedAllowed = allowedOrigin.replace(/\/+$/, '');
-        const matches = normalizedOrigin === normalizedAllowed;
-        if (matches) {
-          logger.info(`CORS match (string): ${normalizedOrigin} === ${normalizedAllowed}`);
+    
+    // Check if origin matches any allowed origin
+    for (const allowedOrigin of allowedOrigins) {
+      if (typeof allowedOrigin === 'string') {
+        if (origin === allowedOrigin) {
+          return callback(null, true);
         }
-        return matches;
-      }
-      if (allowedOrigin instanceof RegExp) {
-        const matches = allowedOrigin.test(normalizedOrigin);
-        if (matches) {
-          logger.info(`CORS match (regex): ${normalizedOrigin} matches ${allowedOrigin}`);
+      } else if (allowedOrigin instanceof RegExp) {
+        if (allowedOrigin.test(origin)) {
+          return callback(null, true);
         }
-        return matches;
       }
-      return false;
-    });
-
-    if (isAllowed) {
-      logger.info(`✅ CORS allowed origin: ${origin}`);
+    }
+    
+    // Allow origin if in development mode (for flexibility during development)
+    if (process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
-
-    // Log blocked origin for debugging with more details
-    logger.warn(`❌ CORS blocked origin: ${origin}`);
-    logger.warn(`   Normalized: ${normalizedOrigin}`);
-    logger.warn(`   Allowed origins (strings): ${JSON.stringify(allowedOrigins.filter(o => typeof o === 'string'))}`);
-    logger.warn(`   Allowed origins (regex): ${allowedOrigins.filter(o => o instanceof RegExp).map(r => r.toString()).join(', ')}`);
-    return callback(null, false);
+    
+    // Log blocked origin for debugging
+    logger.warn(`CORS blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
   },
-
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Cache-Control",
-    "Pragma"
-  ],
-  exposedHeaders: ["Content-Length"],
-  optionsSuccessStatus: 200,
-  preflightContinue: false // Let cors middleware handle preflight
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -195,42 +157,6 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV,
   });
 });
-
-// --- Begin: Trailing-slash normalizer (no redirect) ---
-/**
- * Remove trailing slash for non-GET/HEAD methods so POST/PUT/PATCH/OPTIONS
- * will not be redirected by upstreams that canonicalize URLs.
- *
- * NOTE: Keep root "/" intact.
- */
-app.use((req, res, next) => {
-  try {
-    // only modify when path > 1 and ends with '/' and not GET/HEAD
-    if (req.path.length > 1 && req.path.endsWith('/') && !['GET', 'HEAD'].includes(req.method)) {
-      // strip trailing slash from req.url and req.path so express routing matches
-      // preserve query string if present
-      const originalUrl = req.url;
-      const originalPath = req.path;
-      const qsIndex = originalUrl.indexOf('?');
-      const query = qsIndex >= 0 ? originalUrl.slice(qsIndex) : '';
-      // remove single trailing slash
-      const newPath = originalPath.slice(0, -1);
-      req.url = newPath + query;
-      // for extra safety, also set req.path if your code reads it
-      req.path = newPath;
-      // optional debug log (disabled in production)
-      if (process.env.NODE_ENV !== 'production') {
-        logger.info(`[TrailingSlashFix] Rewrote ${req.method} ${originalUrl} -> ${req.url}`);
-      }
-    }
-  } catch (err) {
-    // if anything weird happens, don't break request flow
-    logger.warn('TrailingSlashFix middleware error', err);
-  }
-  next();
-});
-// --- End: Trailing-slash normalizer ---
-
 
 // API routes
 app.use('/api/auth', authRoutes);

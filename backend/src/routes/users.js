@@ -3,7 +3,6 @@ const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const QRCode = require('qrcode');
 const User = require('../models/User');
-const logger = require('../utils/logger');
 
 const { protect } = require('../middleware/auth');
 const userController = require('../controllers/userController');
@@ -372,14 +371,13 @@ router.get('/qr-code', protect, async (req, res) => {
       const crypto = require('crypto');
       const qrCodeString = crypto.randomBytes(32).toString('hex');
       
-      // Create QR code URL - use helper function for consistent URL resolution
-      const { getFrontendUrl } = require('../utils/corsHelper');
-      const frontendUrl = getFrontendUrl();
+      // Create QR code URL - use production URL in production, localhost in development
+      // Priority: FRONTEND_URL env var > Custom domain > localhost
+      const frontendUrl = process.env.FRONTEND_URL || 
+        (process.env.NODE_ENV === 'production' 
+          ? 'https://www.avihridsys.in' 
+          : 'http://localhost:3000');
       const qrCodeUrl = `${frontendUrl}/verify/qr/${qrCodeString}`;
-      
-      // Log for debugging
-      logger.info(`User QR Code Generation: frontendUrl=${frontendUrl}, qrCodeUrl=${qrCodeUrl}`);
-      logger.info(`User QR Code Env: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}, FRONTEND_URL=${process.env.FRONTEND_URL || 'not set'}`);
 
       // Generate QR code image
       const qrCodeDataUrl = await QRCode.toDataURL(qrCodeUrl, {
@@ -407,14 +405,13 @@ router.get('/qr-code', protect, async (req, res) => {
       });
     }
 
-    // Return existing QR code - use helper function for consistent URL resolution
-    const { getFrontendUrl } = require('../utils/corsHelper');
-    const frontendUrl = getFrontendUrl();
+    // Return existing QR code - use production URL in production, localhost in development
+    // Priority: FRONTEND_URL env var > Amplify URL > Vercel URL > localhost
+    const frontendUrl = process.env.FRONTEND_URL || 
+      (process.env.NODE_ENV === 'production' 
+        ? 'https://www.avihridsys.in' 
+        : 'http://localhost:3000');
     const qrCodeUrl = `${frontendUrl}/verify/qr/${user.qrCode.code}`;
-    
-    // Log for debugging
-    logger.info(`User QR Code Return: frontendUrl=${frontendUrl}, qrCodeUrl=${qrCodeUrl}`);
-    logger.info(`User QR Code Env: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}, FRONTEND_URL=${process.env.FRONTEND_URL || 'not set'}`);
     const qrCodeDataUrl = await QRCode.toDataURL(qrCodeUrl, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
@@ -431,15 +428,11 @@ router.get('/qr-code', protect, async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Error fetching QR code:', {
-      error: error.message,
-      stack: error.stack,
-      userId: req.user?._id
-    });
+    console.error('Error fetching QR code:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch QR code',
-      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
+      error: error.message
     });
   }
 });

@@ -122,29 +122,41 @@ const simulateAadhaarPanLinking = async (record) => {
   const isValidName = name && name.length >= 2;
   
   let status = 'linked';
-  let details = {};
+  let details = {
+    message: 'Aadhaar-PAN linking verified successfully',
+    confidence: 95,
+    dataMatch: true
+  };
   
   if (!isValidAadhaar) {
     status = 'invalid';
     details = {
-      message: 'Invalid Aadhaar number format'
+      message: 'Invalid Aadhaar number format',
+      confidence: 0,
+      dataMatch: false
     };
   } else if (!isValidPAN) {
     status = 'invalid';
     details = {
-      message: 'Invalid PAN number format'
+      message: 'Invalid PAN number format',
+      confidence: 0,
+      dataMatch: false
     };
   } else if (!isValidName) {
     status = 'invalid';
     details = {
-      message: 'Invalid name format'
+      message: 'Invalid name format',
+      confidence: 0,
+      dataMatch: false
     };
   } else {
     // Simulate random verification failures (15% chance)
     if (Math.random() < 0.15) {
       status = 'not-linked';
       details = {
-        message: 'Aadhaar and PAN are not linked in government records'
+        message: 'Aadhaar and PAN are not linked in government records',
+        confidence: 30,
+        dataMatch: false
       };
     }
   }
@@ -247,125 +259,24 @@ router.get('/batches', protect, async (req, res) => {
 
 // Get all records for a user
 router.get('/records', protect, async (req, res) => {
-  const startTime = Date.now();
-  let requestTimeout;
-  
   try {
-    // Set a timeout to prevent hanging requests (30 seconds)
-    requestTimeout = setTimeout(() => {
-      if (!res.headersSent) {
-        logger.warn('Request timeout for /aadhaar-pan/records');
-        res.status(504).json({
-          success: false,
-          message: 'Request timeout. Please try again with pagination (use ?page=1&limit=50)',
-          error: 'Request took too long to process'
-        });
-      }
-    }, 30000); // 30 second timeout
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Default to 50 for better performance
-    const maxLimit = 500; // Max limit
-    const actualLimit = Math.min(limit, maxLimit);
-    const skip = (page - 1) * actualLimit;
-    const search = req.query.search || '';
-    const status = req.query.status || '';
-    const sortBy = req.query.sortBy || 'createdAt';
-    const sortOrder = req.query.sortOrder || 'desc';
-
-    logger.info(`Fetching Aadhaar-PAN records: page=${page}, limit=${actualLimit}, userId=${req.user.id}`);
-
-    // Build query
-    let query = { userId: req.user.id };
-    
-    // Add search filter
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { panNumber: searchRegex },
-        { aadhaarNumber: searchRegex },
-        { name: searchRegex }
-      ];
-    }
-    
-    // Add status filter
-    if (status) {
-      query.status = status;
-    }
-
-    // Get total count for pagination (with timeout protection)
-    const totalRecords = await AadhaarPan.countDocuments(query).maxTimeMS(5000);
-    const totalPages = Math.ceil(totalRecords / actualLimit);
-
-    // Build sort object
-    const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
-    // Get paginated records (with timeout protection)
-    const records = await AadhaarPan.find(query)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(actualLimit)
-      .maxTimeMS(10000) // 10 second timeout for query
+    const records = await AadhaarPan.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
       .lean();
-
-    logger.info(`Found ${records.length} records, starting decryption...`);
-
-    // Decrypt sensitive data in parallel for better performance
-    const decryptedRecords = await Promise.all(
-      records.map(async (record) => {
-        try {
-          // Create a temporary AadhaarPan instance to use the decryptData method
-          const tempRecord = new AadhaarPan(record);
-          return tempRecord.decryptData();
-        } catch (error) {
-          logger.error(`Decryption error for record ${record._id}:`, error.message);
-          // Return original record with encrypted fields marked
-          return {
-            ...record,
-            panNumber: record.panNumber ? '[ENCRYPTED]' : '',
-            aadhaarNumber: record.aadhaarNumber ? '[ENCRYPTED]' : '',
-            name: record.name ? '[ENCRYPTED]' : ''
-          };
-        }
-      })
-    );
-
-    const processingTime = Date.now() - startTime;
-    logger.info(`Records fetched and decrypted in ${processingTime}ms`);
-
-    // Clear timeout since we're responding
-    clearTimeout(requestTimeout);
 
     res.json({
       success: true,
-      data: decryptedRecords,
-      pagination: {
-        currentPage: page,
-        totalPages: totalPages,
-        totalRecords: totalRecords,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-        limit: actualLimit
-      },
-      processingTime: processingTime
+      data: records
     });
   } catch (error) {
-    // Clear timeout on error
-    if (requestTimeout) {
-      clearTimeout(requestTimeout);
-    }
-    
     logger.error('Error fetching Aadhaar-PAN records:', error);
-    
-    // Don't send response if already sent
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch records',
-        error: error.message
-      });
-    }
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch records',
+      error: error.message,
+            sandboxApiResponse: error.sandboxApiResponse,
+            sandboxApiStatus: error.sandboxApiStatus
+    });
   }
 });
 
@@ -923,9 +834,6 @@ router.post('/verify-single', protect, async (req, res) => {
       status: tempRecord.status
     }, req);
 
-    // Remove message, confidence, and dataMatch from verificationDetails
-    const { message, confidence, dataMatch, ...cleanVerificationDetails } = tempRecord.verificationDetails || {};
-    
     res.json({
       success: true,
       message: 'Aadhaar-PAN linking verification completed',
@@ -934,7 +842,7 @@ router.post('/verify-single', protect, async (req, res) => {
         panNumber: tempRecord.panNumber,
         name: tempRecord.name,
         status: tempRecord.status,
-        verificationDetails: cleanVerificationDetails,
+        verificationDetails: tempRecord.verificationDetails,
         processedAt: tempRecord.processedAt,
         processingTime: tempRecord.processingTime
       }

@@ -1,29 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const CustomField = require('../models/CustomField');
-const { protect, authorize, optionalAuth } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { logEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 
 // @route   GET /api/custom-fields
-// @desc    Get all custom fields (public for verification fields, private for others)
-// @access  Public for verification fields, Private for others
-router.get('/', optionalAuth, async (req, res) => {
+// @desc    Get all custom fields
+// @access  Private
+router.get('/', protect, async (req, res) => {
   try {
     const { appliesTo, category, isActive, search } = req.query;
-    
-    // If requesting verification fields and user is not authenticated, allow public access
-    // Otherwise, require authentication for non-verification fields
-    const isPublicRequest = !req.user;
-    const isVerificationRequest = appliesTo === 'verification';
-    
-    // For public requests, only allow verification fields
-    if (isPublicRequest && !isVerificationRequest) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required to access non-verification custom fields'
-      });
-    }
     
     let query = {};
     
@@ -38,10 +25,7 @@ router.get('/', optionalAuth, async (req, res) => {
     }
     
     // Filter by active status
-    // For public requests, always require isActive=true
-    if (isPublicRequest) {
-      query.isActive = true;
-    } else if (isActive !== undefined) {
+    if (isActive !== undefined) {
       query.isActive = isActive === 'true';
     }
     

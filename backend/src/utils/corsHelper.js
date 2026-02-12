@@ -18,18 +18,9 @@ const normalizeOrigin = (url) => {
  * @returns {Array<string|RegExp>} Array of allowed origins
  */
 const getAllowedOrigins = () => {
-  const origins = [];
-  
-  // Always add avihridsys domains (works in both dev and production)
-  origins.push(
-    'https://www.avihridsys.info',
-    'https://avihridsys.info',
-    'https://www.avihridsys.in',
-    'https://avihridsys.in',
-    /^https:\/\/(www\.)?avihridsys\.(in|info)$/
-  );
-  
   if (process.env.NODE_ENV === 'production') {
+    const origins = [];
+    
     // Add environment variable origins (comma-separated)
     if (process.env.ALLOWED_ORIGINS) {
       origins.push(...process.env.ALLOWED_ORIGINS.split(',').map(origin => normalizeOrigin(origin.trim())));
@@ -66,8 +57,7 @@ const getAllowedOrigins = () => {
       devOrigins.push(...process.env.DEV_ALLOWED_ORIGINS.split(',').map(origin => normalizeOrigin(origin.trim())));
     }
     
-    // Merge with avihridsys domains
-    return [...origins, ...devOrigins];
+    return devOrigins;
   }
 };
 
@@ -110,47 +100,9 @@ const getAllowedOrigin = (requestOrigin) => {
   return normalizeOrigin(frontendUrl) || '*';
 };
 
-/**
- * Get the frontend URL for QR codes and redirects
- * Priority: FRONTEND_URL env var > Production URL (always production, no localhost)
- * @returns {string} Frontend URL
- */
-const getFrontendUrl = () => {
-  const logger = require('./logger');
-  
-  // First priority: FRONTEND_URL environment variable
-  if (process.env.FRONTEND_URL) {
-    const url = normalizeOrigin(process.env.FRONTEND_URL);
-    // CRITICAL: Never allow localhost in production
-    if (url && url.includes('localhost')) {
-      logger.warn(`QR Code: FRONTEND_URL contains localhost (${url}), overriding to production URL`);
-      const productionUrl = 'https://www.avihridsys.in';
-      logger.info(`QR Code: Using production URL (override): ${productionUrl}`);
-      return productionUrl;
-    }
-    logger.info(`QR Code: Using FRONTEND_URL from env: ${url}`);
-    return url;
-  }
-  
-  // Always use production URL - never localhost
-  // This ensures QR codes always work in production, even if env vars aren't set
-  const url = 'https://www.avihridsys.in';
-  logger.info(`QR Code: Using production URL (default): ${url}`);
-  logger.info(`QR Code: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}, FRONTEND_URL=${process.env.FRONTEND_URL || 'not set'}`);
-  
-  // Final safety check - never return localhost
-  if (url && url.includes('localhost')) {
-    logger.error(`QR Code: CRITICAL - Production URL contains localhost! This should never happen.`);
-    return 'https://www.avihridsys.in';
-  }
-  
-  return url;
-};
-
 module.exports = {
   getAllowedOrigins,
   getAllowedOrigin,
-  normalizeOrigin,
-  getFrontendUrl
+  normalizeOrigin
 };
 
