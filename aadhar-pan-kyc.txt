@@ -1,0 +1,97 @@
+0935001700110939
+
+avisoftkyc@gmail.com
+Avisoft@1212
+
+https://myorders.bigrock.in/orders/manage/avihridsys.in/domain
+avisoft.in@gmail.com
+AVIsoft@17jan
+
+
+AWS pass:- Avisoft@123
+avinash@avisoft.in
+
+AWS Amplify
+
+https://github.com/avisoftkyc
+
+
+
+…or create a new repository on the command line
+echo "# adhar-pan-kyc" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/avisoftkyc/adhar-pan-kyc.git
+git push -u origin main
+…or push an existing repository from the command line
+git remote add origin https://github.com/avisoftkyc/adhar-pan-kyc.git
+git branch -M main
+git push -u origin main
+
+
+https://github.com/avisoftkyc/adhar-pan-kyc.git
+
+PS C:\avi-adhar-pan-kyc> git clone https://github.com/avisoftkyc/adhar-pan-kyc.git
+Cloning into 'adhar-pan-kyc'...
+warning: You appear to have cloned an empty repository.
+PS C:\avi-adhar-pan-kyc> ls
+
+
+    Directory: C:\avi-adhar-pan-kyc
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        13-09-2025     11:57                adhar-pan-kyc
+
+
+PS C:\avi-adhar-pan-kyc> cd .\adhar-pan-kyc\
+PS C:\avi-adhar-pan-kyc\adhar-pan-kyc> ls
+PS C:\avi-adhar-pan-kyc\adhar-pan-kyc> git remote -v
+origin  https://github.com/avisoftkyc/adhar-pan-kyc.git (fetch)
+origin  https://github.com/avisoftkyc/adhar-pan-kyc.git (push)
+PS C:\avi-adhar-pan-kyc\adhar-pan-kyc>
+
+
+
+https://adhar-pan-kyc-1.onrender.com/health
+
+
+ashulk311-ux
+
+Anshul@123##
+
+
+https://github.com/ashulk311-ux/adhar-pan-kyc.git
+
+
+PS C:\adhar-pan-kyc\adhar-pan-kyc> git remote -v
+friend  https://github.com/ashulk311-ux/adhar-pan-kyc.git (fetch)
+friend  https://github.com/ashulk311-ux/adhar-pan-kyc.git (push)
+origin  https://github.com/avisoftkyc/adhar-pan-kyc.git (fetch)
+origin  https://github.com/avisoftkyc/adhar-pan-kyc.git (push)
+PS C:\adhar-pan-kyc\adhar-pan-kyc> git pull friend main
+From https://github.com/ashulk311-ux/adhar-pan-kyc
+ * branch            main       -> FETCH_HEAD
+
+
+
+
+frontend -- vercel
+backend -- 
+
+
+
+
+C:\adhar-pan-kyc\adhar-pan-kyc>git push https://github.com/ashulk311-ux/adhar-pan-kyc.git
+remote: Permission to ashulk311-ux/adhar-pan-kyc.git denied to avisoftkyc.
+fatal: unable to access 'https://github.com/ashulk311-ux/adhar-pan-kyc.git/': The requested URL returned error: 403
+
+C:\adhar-pan-kyc\adhar-pan-kyc>git pull https://github.com/avisoftkyc/adhar-pan-kyc.git
+From https://github.com/avisoftkyc/adhar-pan-kyc
+ * branch            HEAD       -> FETCH_HEAD
+Already up to date.
+
+C:\adhar-pan-kyc\adhar-pan-kyc>git push https://github.com/avisoftkyc/adhar-pan-kyc.git

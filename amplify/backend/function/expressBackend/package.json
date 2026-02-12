@@ -1,0 +1,10 @@
+{
+  "name": "express-backend-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function wrapper for Express backend",
+  "main": "index.js",
+  "dependencies": {
+    "serverless-http": "^3.2.0"
+  }
+}
+

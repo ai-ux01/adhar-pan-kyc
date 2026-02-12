@@ -1,0 +1,20 @@
+# This is the GraphQL schema for the backend API
+# Note: This is a placeholder. You can extend this based on your needs
+# or use REST API instead via API Gateway + Lambda
+
+type Query {
+  health: HealthResponse
+}
+
+type Mutation {
+  # Placeholder mutations - extend based on your needs
+  test: String
+}
+
+type HealthResponse {
+  status: String!
+  timestamp: String!
+  uptime: Float!
+  environment: String!
+}
+

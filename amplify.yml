@@ -1,0 +1,21 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - cd frontend
+        - npm ci
+    build:
+      commands:
+        - echo "Building with NODE_ENV=production"
+        - NODE_ENV=production npm run build
+  artifacts:
+    baseDirectory: frontend/build
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - frontend/node_modules/**/*
+      - frontend/.npm/**/*
+# Note: Backend Lambda functions are deployed separately using 'amplify push'
+# This file is for frontend hosting only

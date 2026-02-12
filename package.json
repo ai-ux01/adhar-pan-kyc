@@ -1,0 +1,33 @@
+{
+  "name": "kyc-aadhaar-app",
+  "version": "1.0.0",
+  "description": "KYC Aadhaar App - Full Stack Application",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "vercel-build": "cd frontend && npm install && npm run build"
+  },
+  "keywords": [
+    "kyc",
+    "aadhaar",
+    "pan",
+    "verification",
+    "react",
+    "nodejs",
+    "mongodb"
+  ],
+  "author": "Ashul Kumar",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

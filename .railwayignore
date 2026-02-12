@@ -1,0 +1,9 @@
+# Ignore frontend files for backend deployment
+frontend/
+node_modules/
+.git/
+*.log
+.env.local
+.env.development
+*.md
+!README.md

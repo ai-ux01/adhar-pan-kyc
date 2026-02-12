@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "serviceConfiguration": {
+    "serviceName": "Cognito",
+    "serviceType": "imported",
+    "providerPlugin": "awscloudformation",
+    "dependsOn": [],
+    "customAuth": false,
+    "resourceName": "kycapp",
+    "authSelections": "userPoolOnly",
+    "userPoolName": "kycapp",
+    "requiredAttributes": [
+      "email",
+      "name"
+    ],
+    "passwordPolicy": {
+      "minLength": 8,
+      "requireNumbers": true,
+      "requireLowercase": true,
+      "requireUppercase": false,
+      "requireSpecialCharacters": false
+    },
+    "userpoolClientReadAttributes": [
+      "email",
+      "name"
+    ],
+    "userpoolClientWriteAttributes": [
+      "email",
+      "name"
+    ],
+    "mfaConfiguration": "OFF",
+    "mfaTypes": []
+  }
+}
+
