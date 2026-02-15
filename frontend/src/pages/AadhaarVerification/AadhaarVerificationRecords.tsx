@@ -439,7 +439,7 @@ const AadhaarVerificationRecords: React.FC = () => {
     setShowDetails(false);
   };
 
-  const fetchDynamicFieldKeys = async () => {
+  const fetchDynamicFieldKeys = async (): Promise<DynamicFieldKey[]> => {
     try {
       const { data } = await api.get<{ success: boolean; data: DynamicFieldKey[] }>(
         '/aadhaar-verification/dynamic-field-keys'
@@ -449,10 +449,28 @@ const AadhaarVerificationRecords: React.FC = () => {
         return data.data;
       }
     } catch (err: any) {
-      if (err.response?.status !== 404) {
+      if (err.response?.status === 404) {
+        try {
+          const res = await api.get<{ success: boolean; data: any[] }>('/custom-fields', {
+            params: { appliesTo: 'verification', isActive: 'true' }
+          });
+          if (res.data.success && Array.isArray(res.data.data)) {
+            const keys: DynamicFieldKey[] = res.data.data.map((f: any) => ({
+              fieldName: f.fieldName || '',
+              fieldLabel: f.fieldLabel || f.fieldName || '',
+              fieldType: f.fieldType || 'text',
+              placeholder: f.placeholder,
+              required: !!f.required
+            }));
+            setDynamicFieldKeysFromApi(keys);
+            return keys;
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback custom-fields fetch failed:', fallbackErr);
+        }
+      } else {
         console.error('Failed to fetch dynamic field keys:', err);
       }
-      // 404 = route not deployed yet on backend; treat as no keys
     }
     return [];
   };
