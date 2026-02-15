@@ -18,7 +18,8 @@ import {
   FunnelIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 
 // Component to load authenticated images
@@ -231,6 +232,10 @@ const AadhaarVerificationRecords: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<VerificationRecord | null>(null);
   const [editDynamicFields, setEditDynamicFields] = useState<Array<{ label: string; value: string }>>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [uploadingSelfie, setUploadingSelfie] = useState(false);
+  const [selfieUploadKey, setSelfieUploadKey] = useState(0);
 
   // Extract unique dynamic field labels from records
   const extractDynamicFieldLabels = (records: VerificationRecord[]) => {
@@ -503,6 +508,9 @@ const AadhaarVerificationRecords: React.FC = () => {
   const handleCloseEdit = () => {
     setEditingRecord(null);
     setEditDynamicFields([]);
+    setSelfieFile(null);
+    setSelfiePreview(null);
+    if (selfiePreview) URL.revokeObjectURL(selfiePreview);
   };
 
   const handleEditDynamicFieldChange = (index: number, value: string) => {
@@ -511,6 +519,50 @@ const AadhaarVerificationRecords: React.FC = () => {
       if (next[index]) next[index] = { ...next[index], value };
       return next;
     });
+  };
+
+  const handleSelfieFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setSelfieFile(null);
+      setSelfiePreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (JPEG, PNG, etc.)');
+      return;
+    }
+    setSelfieFile(file);
+    setSelfiePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const handleUploadSelfie = async () => {
+    if (!editingRecord || !selfieFile) return;
+    setUploadingSelfie(true);
+    try {
+      const formData = new FormData();
+      formData.append('selfie', selfieFile);
+      await api.post(`/aadhaar-verification/records/${editingRecord._id}/selfie`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Selfie updated');
+      setSelfieFile(null);
+      setSelfiePreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setSelfieUploadKey((k) => k + 1);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to upload selfie');
+    } finally {
+      setUploadingSelfie(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -1481,7 +1533,7 @@ const AadhaarVerificationRecords: React.FC = () => {
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 max-w-lg shadow-lg rounded-xl bg-white">
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Edit Dynamic Fields</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Edit record (dynamic fields &amp; selfie)</h3>
                   <button
                     onClick={handleCloseEdit}
                     className="text-gray-400 hover:text-gray-600 p-1"
@@ -1512,6 +1564,58 @@ const AadhaarVerificationRecords: React.FC = () => {
                       </div>
                     ))
                   )}
+                </div>
+                {/* Selfie: show current and allow replace */}
+                <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <PhotoIcon className="w-4 h-4" />
+                    Selfie
+                  </h4>
+                  <div className="flex flex-wrap items-start gap-4">
+                    <div className="w-24 h-24 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                      <AuthenticatedImage
+                        key={`edit-selfie-${editingRecord._id}-${selfieUploadKey}`}
+                        recordId={editingRecord._id}
+                        className="w-full h-full object-cover"
+                        alt="Current selfie"
+                        fallback={<span className="text-xs text-gray-400">No selfie</span>}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="cursor-pointer">
+                          <span className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300">
+                            Choose image
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleSelfieFileChange}
+                            disabled={uploadingSelfie}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleUploadSelfie}
+                          disabled={!selfieFile || uploadingSelfie}
+                          className="inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {uploadingSelfie ? (
+                            <>
+                              <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            'Upload / Replace selfie'
+                          )}
+                        </button>
+                      </div>
+                      {selfiePreview && (
+                        <p className="text-xs text-gray-500">New image selected. Click &quot;Upload / Replace selfie&quot; to save.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
