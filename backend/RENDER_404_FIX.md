@@ -1,20 +1,29 @@
-# 404 on production (e.g. /api/aadhaar-verification/dynamic-field-keys)
+# 404 on production (Render)
 
-If a route works locally but returns **404** on Render, the backend service is almost certainly running an **old build** that doesn’t include that route.
+If a route works locally but returns **404** on Render (`{"error":"Route not found","path":"/api/..."}`), the backend is running an **old build** that doesn’t include that route.
 
 ## Fix: redeploy the backend on Render
 
-1. Open [Render Dashboard](https://dashboard.render.com) → your **backend** service (e.g. `kyc-aadhaar-backend`).
-2. **Manual Deploy** → **Deploy latest commit** (or push your latest code to the connected branch, then deploy).
-3. Wait for the build and deploy to finish.
-4. Call the API again (e.g. `GET .../api/aadhaar-verification/dynamic-field-keys`).
+1. **Push** your latest code to the branch Render uses (e.g. `main`):
+   ```bash
+   git add -A && git commit -m "Backend routes" && git push origin main
+   ```
+2. Open [Render Dashboard](https://dashboard.render.com) → your **backend** service (e.g. `adhar-pan-kyc-1` or `kyc-aadhaar-backend`).
+3. **Manual Deploy** → **Deploy latest commit**.
+4. Wait for **Build** and **Deploy** to finish (logs should show "Your service is live").
+5. Try the API again.
 
-Ensure the branch connected in Render has the commit that adds the route (e.g. `GET /dynamic-field-keys` in `backend/src/routes/aadhaarVerification.js`).
+## Routes that must be in the deployed backend
 
-## Check that the route is in the repo
+All in `backend/src/routes/aadhaarVerification.js`:
 
-- File: `backend/src/routes/aadhaarVerification.js`
-- Route: `router.get('/dynamic-field-keys', protect, ...)`
-- Mount: `app.use('/api/aadhaar-verification', aadhaarVerificationRoutes)` in `server.js`
+| Method | Path (relative to /api/aadhaar-verification) | Purpose |
+|--------|----------------------------------------------|---------|
+| GET    | `/dynamic-field-keys`                        | Fetch custom field keys for edit form |
+| PATCH  | `/records/:id`                               | Update dynamic fields for a record     |
 
-So the full URL is: `https://your-app.onrender.com/api/aadhaar-verification/dynamic-field-keys`.
+- Full URLs:  
+  `GET  https://adhar-pan-kyc-1.onrender.com/api/aadhaar-verification/dynamic-field-keys`  
+  `PATCH https://adhar-pan-kyc-1.onrender.com/api/aadhaar-verification/records/:id` (body: `{ "dynamicFields": [ { "label": "...", "value": "..." } ] }`)
+
+If either returns 404, the deploy does not include the latest `aadhaarVerification.js`. Redeploy from a commit that has these routes.
