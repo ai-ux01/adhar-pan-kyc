@@ -448,8 +448,11 @@ const AadhaarVerificationRecords: React.FC = () => {
         setDynamicFieldKeysFromApi(data.data);
         return data.data;
       }
-    } catch (err) {
-      console.error('Failed to fetch dynamic field keys:', err);
+    } catch (err: any) {
+      if (err.response?.status !== 404) {
+        console.error('Failed to fetch dynamic field keys:', err);
+      }
+      // 404 = route not deployed yet on backend; treat as no keys
     }
     return [];
   };
