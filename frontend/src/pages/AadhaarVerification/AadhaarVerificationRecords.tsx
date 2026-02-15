@@ -193,6 +193,14 @@ interface PaginationInfo {
   hasPrev: boolean;
 }
 
+interface DynamicFieldKey {
+  fieldName: string;
+  fieldLabel: string;
+  fieldType: string;
+  placeholder?: string;
+  required?: boolean;
+}
+
 const AadhaarVerificationRecords: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -219,6 +227,7 @@ const AadhaarVerificationRecords: React.FC = () => {
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [dynamicFieldLabels, setDynamicFieldLabels] = useState<string[]>([]);
+  const [dynamicFieldKeysFromApi, setDynamicFieldKeysFromApi] = useState<DynamicFieldKey[]>([]);
   const [editingRecord, setEditingRecord] = useState<VerificationRecord | null>(null);
   const [editDynamicFields, setEditDynamicFields] = useState<Array<{ label: string; value: string }>>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -297,6 +306,8 @@ const AadhaarVerificationRecords: React.FC = () => {
   useEffect(() => {
     loadRecords();
   }, []);
+
+  // Fetch dynamic field keys from backend (for edit form) - defined below and used on mount and when opening edit
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -428,11 +439,42 @@ const AadhaarVerificationRecords: React.FC = () => {
     setShowDetails(false);
   };
 
-  const handleEditClick = (record: VerificationRecord) => {
+  const fetchDynamicFieldKeys = async () => {
+    try {
+      const { data } = await api.get<{ success: boolean; data: DynamicFieldKey[] }>(
+        '/aadhaar-verification/dynamic-field-keys'
+      );
+      if (data.success && Array.isArray(data.data)) {
+        setDynamicFieldKeysFromApi(data.data);
+        return data.data;
+      }
+    } catch (err) {
+      console.error('Failed to fetch dynamic field keys:', err);
+    }
+    return [];
+  };
+
+  useEffect(() => {
+    fetchDynamicFieldKeys();
+  }, []);
+
+  const handleEditClick = async (record: VerificationRecord) => {
     setEditingRecord(record);
+    const recordFields = record.dynamicFields || [];
+    const getValueForLabel = (label: string) =>
+      recordFields.find((f) => f.label === label)?.value ?? '';
+
+    let keys = dynamicFieldKeysFromApi;
+    if (keys.length === 0) {
+      keys = await fetchDynamicFieldKeys();
+    }
+
     setEditDynamicFields(
-      record.dynamicFields && record.dynamicFields.length > 0
-        ? record.dynamicFields.map((f) => ({ label: f.label, value: f.value }))
+      keys.length > 0
+        ? keys.map((key) => ({
+            label: key.fieldLabel,
+            value: getValueForLabel(key.fieldLabel) || getValueForLabel(key.fieldName) || ''
+          }))
         : []
     );
   };
@@ -452,11 +494,15 @@ const AadhaarVerificationRecords: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingRecord) return;
+    const toSave = editDynamicFields.map((f) => ({
+      label: String(f.label).trim(),
+      value: String(f.value ?? '').trim()
+    }));
     setIsSavingEdit(true);
     try {
       const { data } = await api.patch<{ success: boolean; data: VerificationRecord; message?: string }>(
         `/aadhaar-verification/records/${editingRecord._id}`,
-        { dynamicFields: editDynamicFields }
+        { dynamicFields: toSave }
       );
       if (!data.success || !data.data) {
         throw new Error('Failed to update');
@@ -1426,24 +1472,26 @@ const AadhaarVerificationRecords: React.FC = () => {
                 <p className="text-sm text-gray-600 mb-4">
                   Record: {editingRecord.name || '-'} · Aadhaar ending {editingRecord.aadhaarNumber?.slice(-4) || '-'}
                 </p>
-                {editDynamicFields.length === 0 ? (
-                  <p className="text-gray-500 py-4">No dynamic fields for this record.</p>
-                ) : (
-                  <div className="space-y-3 mb-6">
-                    {editDynamicFields.map((field, index) => (
+                <div className="space-y-3 mb-6">
+                  {editDynamicFields.length === 0 ? (
+                    <p className="text-gray-500 py-4">
+                      No dynamic fields configured. Field names are set in the database. Ask admin to add custom fields for verification (Admin → Custom Fields, Applies to: Verification).
+                    </p>
+                  ) : (
+                    editDynamicFields.map((field, index) => (
                       <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <label className="text-sm font-medium text-gray-700 sm:w-32 shrink-0">{field.label}</label>
+                        <label className="text-sm font-medium text-gray-700 sm:w-40 shrink-0">{field.label}</label>
                         <input
                           type="text"
                           value={field.value}
                           onChange={(e) => handleEditDynamicFieldChange(index, e.target.value)}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                          placeholder={`Value for ${field.label}`}
+                          placeholder={dynamicFieldKeysFromApi[index]?.placeholder || `Enter ${field.label}`}
                         />
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={handleCloseEdit}
@@ -1451,22 +1499,20 @@ const AadhaarVerificationRecords: React.FC = () => {
                   >
                     Cancel
                   </button>
-                  {editDynamicFields.length > 0 && (
-                    <button
-                      onClick={handleSaveEdit}
-                      disabled={isSavingEdit}
-                      className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSavingEdit ? (
-                        <>
-                          <ArrowPathIcon className="w-4 h-4 inline-block mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        'Save'
-                      )}
-                    </button>
-                  )}
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={isSavingEdit || editDynamicFields.length === 0}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <ArrowPathIcon className="w-4 h-4 inline-block mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

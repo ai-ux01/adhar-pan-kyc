@@ -108,7 +108,9 @@ const PanKycRecords: React.FC = () => {
       const response = await api.get(`/pan-kyc/records?${params.toString()}`);
       const res = response.data;
       if (res.success) {
-        setRecords(res.data || []);
+        const data = res.data || [];
+        setRecords(data);
+
         if (res.pagination) {
           setPagination({
             currentPage: res.pagination.currentPage,
@@ -116,7 +118,15 @@ const PanKycRecords: React.FC = () => {
             totalRecords: res.pagination.totalRecords,
             limit: res.pagination.limit
           });
+        } else {
+          setPagination({
+            currentPage: 1,
+            totalPages: 1,
+            totalRecords: data.length,
+            limit: recordsPerPage
+          });
         }
+
         if (res.stats) {
           setStats({
             total: res.stats.total ?? 0,
@@ -124,6 +134,14 @@ const PanKycRecords: React.FC = () => {
             verified: res.stats.verified ?? 0,
             rejected: res.stats.rejected ?? 0,
             error: res.stats.error ?? 0
+          });
+        } else {
+          setStats({
+            total: data.length,
+            pending: data.filter((r: PanKycRecord) => r.status === 'pending').length,
+            verified: data.filter((r: PanKycRecord) => r.status === 'verified').length,
+            rejected: data.filter((r: PanKycRecord) => r.status === 'rejected').length,
+            error: data.filter((r: PanKycRecord) => r.status === 'error').length
           });
         }
       }

@@ -11,6 +11,7 @@ const { logAadhaarVerificationEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadhaarVerificationService');
 const { getAllowedOrigin } = require('../utils/corsHelper');
+const CustomField = require('../models/CustomField');
 
 // Configure multer for selfie uploads (memory storage - save to MongoDB, not disk)
 const selfieUpload = multer({
@@ -27,7 +28,35 @@ const selfieUpload = multer({
   }
 });
 
-
+// Get dynamic field keys (from custom fields applied to verification) for the edit form
+router.get('/dynamic-field-keys', protect, async (req, res) => {
+  try {
+    const fields = await CustomField.find({
+      appliesTo: { $in: ['verification', 'both'] },
+      isActive: true
+    })
+      .sort({ displayOrder: 1, createdAt: 1 })
+      .select('fieldName fieldLabel fieldType placeholder required')
+      .lean();
+    res.json({
+      success: true,
+      data: fields.map((f) => ({
+        fieldName: f.fieldName,
+        fieldLabel: f.fieldLabel || f.fieldName,
+        fieldType: f.fieldType || 'text',
+        placeholder: f.placeholder,
+        required: !!f.required
+      }))
+    });
+  } catch (error) {
+    logger.error('Error fetching dynamic field keys:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dynamic field keys',
+      error: error.message
+    });
+  }
+});
 
 // Get all records for a user
 router.get('/records', protect, async (req, res) => {
@@ -111,6 +140,15 @@ router.get('/records', protect, async (req, res) => {
       .limit(limit)
       .lean();
 
+    // Fetch dynamic field keys (from custom fields) to fill default shape for dynamicFields
+    const fieldKeys = await CustomField.find({
+      appliesTo: { $in: ['verification', 'both'] },
+      isActive: true
+    })
+      .sort({ displayOrder: 1, createdAt: 1 })
+      .select('fieldName fieldLabel defaultValue')
+      .lean();
+
     // Decrypt sensitive data for each record
     const decryptedRecords = records.map(record => {
       try {
@@ -125,6 +163,21 @@ router.get('/records', protect, async (req, res) => {
             decryptedRecord.verificationDetails.apiResponse.data && 
             decryptedRecord.verificationDetails.apiResponse.data.care_of) {
           decryptedRecord.careOf = decryptedRecord.verificationDetails.apiResponse.data.care_of;
+        }
+
+        // Populate dynamicFields from default keys: each record gets same keys, values from record or default
+        const existing = decryptedRecord.dynamicFields && Array.isArray(decryptedRecord.dynamicFields) ? decryptedRecord.dynamicFields : [];
+        const getValue = (label, fieldName) => {
+          const found = existing.find(f => f.label === label || f.label === fieldName);
+          return found ? (found.value || '') : '';
+        };
+        if (fieldKeys.length > 0) {
+          decryptedRecord.dynamicFields = fieldKeys.map(f => ({
+            label: f.fieldLabel || f.fieldName,
+            value: getValue(f.fieldLabel, f.fieldName) || (f.defaultValue != null ? String(f.defaultValue) : '')
+          }));
+        } else if (!decryptedRecord.dynamicFields || decryptedRecord.dynamicFields.length === 0) {
+          decryptedRecord.dynamicFields = [];
         }
         
         return decryptedRecord;
@@ -216,6 +269,7 @@ router.route('/records/:id')
             label: String(f.label).trim(),
             value: f.value != null ? String(f.value).trim() : ''
           }))
+          .filter((f) => f.label !== '')
       : [];
 
     record.dynamicFields = normalizedFields;

@@ -16308,3 +16308,39 @@
     '    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)',
   timestamp: '2026-02-11 21:17:48'
 }
+{
+  service: 'kyc-aadhaar-api',
+  name: 'JsonWebTokenError',
+  message: 'Token verification failed: invalid signature',
+  level: 'error',
+  stack: 'JsonWebTokenError: invalid signature\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:171:19\n' +
+    '    at getSecret (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:97:14)\n' +
+    '    at module.exports [as verify] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:101:10)\n' +
+    '    at protect (/Users/anshulkumar/adhar-pan-kyc/backend/src/middleware/auth.js:15:27)\n' +
+    '    at Layer.handle [as handle_request] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/layer.js:95:5)\n' +
+    '    at next (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/route.js:149:13)\n' +
+    '    at Route.dispatch (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/route.js:119:3)\n' +
+    '    at Layer.handle [as handle_request] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/layer.js:95:5)\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/index.js:284:15\n' +
+    '    at router.process_params (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/index.js:346:12)',
+  timestamp: '2026-02-12 07:49:09'
+}
+{
+  service: 'kyc-aadhaar-api',
+  name: 'JsonWebTokenError',
+  message: 'Token verification failed: invalid signature',
+  level: 'error',
+  stack: 'JsonWebTokenError: invalid signature\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:171:19\n' +
+    '    at getSecret (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:97:14)\n' +
+    '    at module.exports [as verify] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/jsonwebtoken/verify.js:101:10)\n' +
+    '    at protect (/Users/anshulkumar/adhar-pan-kyc/backend/src/middleware/auth.js:15:27)\n' +
+    '    at Layer.handle [as handle_request] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/layer.js:95:5)\n' +
+    '    at next (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/route.js:149:13)\n' +
+    '    at Route.dispatch (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/route.js:119:3)\n' +
+    '    at Layer.handle [as handle_request] (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/layer.js:95:5)\n' +
+    '    at /Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/index.js:284:15\n' +
+    '    at router.process_params (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/index.js:346:12)',
+  timestamp: '2026-02-12 07:49:09'
+}
