@@ -145,7 +145,7 @@ If you prefer to keep your backend on Render and only use Amplify for frontend h
    ```
 3. **Set frontend environment variable** in Amplify Console:
    ```bash
-   REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api
+   REACT_APP_API_URL=https://adhar-pan-kyc.onrender.com/api
    ```
 
 ## Migration Strategy

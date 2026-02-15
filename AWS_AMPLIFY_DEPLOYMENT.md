@@ -6,7 +6,7 @@ This guide will help you deploy the frontend React application to AWS Amplify.
 
 1. AWS Account
 2. GitHub repository connected (or GitLab/Bitbucket)
-3. Backend API already deployed (currently on Render: `https://adhar-pan-kyc-1.onrender.com`)
+3. Backend API already deployed (currently on Render: `https://adhar-pan-kyc.onrender.com`)
 
 ## Step 1: Connect Repository to AWS Amplify
 
@@ -58,7 +58,7 @@ In AWS Amplify Console, go to **App settings** → **Environment variables** and
 ### Required Environment Variables:
 
 ```bash
-REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api
+REACT_APP_API_URL=https://adhar-pan-kyc.onrender.com/api
 REACT_APP_ENVIRONMENT=production
 NODE_ENV=production
 ```
@@ -91,7 +91,7 @@ If you need to add custom redirects, update `frontend/public/_redirects`:
 /*    /index.html   200
 
 # API proxy (if needed)
-/api/*  https://adhar-pan-kyc-1.onrender.com/api/:splat  200
+/api/*  https://adhar-pan-kyc.onrender.com/api/:splat  200
 ```
 
 ## Step 6: Deploy
@@ -146,7 +146,7 @@ AWS Amplify automatically deploys on every push to the connected branch:
 
 1. Verify `REACT_APP_API_URL` is set correctly
 2. Check backend CORS configuration
-3. Test API endpoint directly: `https://adhar-pan-kyc-1.onrender.com/api/health`
+3. Test API endpoint directly: `https://adhar-pan-kyc.onrender.com/api/health`
 
 ### Routing Issues (404 on refresh)
 

@@ -23,7 +23,7 @@ All in `backend/src/routes/aadhaarVerification.js`:
 | PATCH  | `/records/:id`                               | Update dynamic fields for a record     |
 
 - Full URLs:  
-  `GET  https://adhar-pan-kyc-1.onrender.com/api/aadhaar-verification/dynamic-field-keys`  
-  `PATCH https://adhar-pan-kyc-1.onrender.com/api/aadhaar-verification/records/:id` (body: `{ "dynamicFields": [ { "label": "...", "value": "..." } ] }`)
+  `GET  https://adhar-pan-kyc.onrender.com/api/aadhaar-verification/dynamic-field-keys`  
+  `PATCH https://adhar-pan-kyc.onrender.com/api/aadhaar-verification/records/:id` (body: `{ "dynamicFields": [ { "label": "...", "value": "..." } ] }`)
 
 If either returns 404, the deploy does not include the latest `aadhaarVerification.js`. Redeploy from a commit that has these routes.

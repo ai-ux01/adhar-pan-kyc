@@ -56,7 +56,7 @@ PS C:\avi-adhar-pan-kyc\adhar-pan-kyc>
 
 
 
-https://adhar-pan-kyc-1.onrender.com/health
+https://adhar-pan-kyc.onrender.com/health
 
 
 ashulk311-ux

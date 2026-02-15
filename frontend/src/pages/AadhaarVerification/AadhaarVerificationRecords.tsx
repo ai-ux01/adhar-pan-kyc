@@ -269,7 +269,7 @@ const AadhaarVerificationRecords: React.FC = () => {
         const isProduction = window.location.hostname !== 'localhost' && 
                              window.location.hostname !== '127.0.0.1' &&
                              !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
+        return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
       };
       const response = await fetch(`${getApiBaseURL()}/aadhaar-verification/records?${params.toString()}`, {
         headers: {

@@ -7,7 +7,7 @@
 - **Platform:** Vercel
 
 ### Backend (Render)
-- **URL:** `https://adhar-pan-kyc-1.onrender.com`
+- **URL:** `https://adhar-pan-kyc.onrender.com`
 - **Platform:** Render
 
 ## Environment Variables
@@ -17,7 +17,7 @@
 Set these in your Vercel project settings → Environment Variables:
 
 ```bash
-REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api
+REACT_APP_API_URL=https://adhar-pan-kyc.onrender.com/api
 REACT_APP_ENVIRONMENT=production
 ```
 
@@ -61,7 +61,7 @@ Your frontend at `https://adhar-pan-kyc.vercel.app` will automatically be allowe
 Open your browser console on `https://adhar-pan-kyc.vercel.app` and run:
 
 ```javascript
-fetch('https://adhar-pan-kyc-1.onrender.com/api/health', {
+fetch('https://adhar-pan-kyc.onrender.com/api/health', {
   method: 'GET',
   credentials: 'include'
 })
@@ -128,7 +128,7 @@ If environment variables aren't working:
 ## Quick Setup Checklist
 
 ### Frontend (Vercel)
-- [ ] Set `REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api`
+- [ ] Set `REACT_APP_API_URL=https://adhar-pan-kyc.onrender.com/api`
 - [ ] Redeploy frontend
 - [ ] Test API connection
 

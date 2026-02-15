@@ -15,7 +15,7 @@ The `amplify.yml` file is already configured. Amplify will auto-detect it.
 Add these in **App settings** → **Environment variables**:
 
 ```
-REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api
+REACT_APP_API_URL=https://adhar-pan-kyc.onrender.com/api
 REACT_APP_ENVIRONMENT=production
 NODE_ENV=production
 ```

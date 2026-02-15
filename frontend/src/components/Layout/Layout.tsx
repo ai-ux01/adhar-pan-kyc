@@ -53,7 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         const isProduction = window.location.hostname !== 'localhost' && 
                              window.location.hostname !== '127.0.0.1' &&
                              !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
+        return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
       };
       const baseUrl = getApiBaseURL();
       // Use the API endpoint to serve the logo - this ensures proper path resolution and fallback handling
