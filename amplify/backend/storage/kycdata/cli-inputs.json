@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "serviceConfiguration": {
+    "serviceName": "DynamoDB",
+    "resourceName": "kycdata",
+    "tableName": "kycdata",
+    "partitionKey": {
+      "name": "id",
+      "type": "S"
+    },
+    "sortKey": {
+      "name": "createdAt",
+      "type": "S"
+    },
+    "billingMode": "PAY_PER_REQUEST",
+    "gsi": [
+      {
+        "name": "userId-index",
+        "partitionKey": {
+          "name": "userId",
+          "type": "S"
+        }
+      }
+    ]
+  }
+}
+

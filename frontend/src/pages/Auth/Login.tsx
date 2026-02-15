@@ -82,14 +82,14 @@ const Login: React.FC = () => {
             <div className="mx-auto h-20 w-20 bg-gradient-to-br from-white to-white rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/30 overflow-hidden">
               <img 
                 src={logoImage} 
-                alt="DUMMY Logo" 
+                alt="AVIHR IDSYS Logo" 
                 className="w-full h-full object-contain p-2"
               />
             </div>
             
             {/* Product Name */}
             <h1 className="mt-6 text-3xl font-bold text-white drop-shadow-lg">
-              DUMMY IDSYS
+              AVIHR IDSYS
             </h1>
             
             {/* Feature Descriptions - Horizontal with Icons */}

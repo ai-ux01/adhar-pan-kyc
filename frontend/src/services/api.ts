@@ -14,7 +14,7 @@ const getApiBaseURL = () => {
                        !window.location.hostname.startsWith('192.168.');
   
   // Use production URL if in production, otherwise localhost
-  return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+  return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
 };
 
 const apiBaseURL = getApiBaseURL();

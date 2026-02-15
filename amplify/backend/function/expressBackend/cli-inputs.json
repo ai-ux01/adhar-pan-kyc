@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "serviceConfiguration": {
+    "serviceName": "Lambda",
+    "functionName": "expressBackend",
+    "runtime": "nodejs18.x",
+    "handler": "index.handler",
+    "timeout": 30,
+    "memorySize": 512,
+    "environmentVariables": {
+      "NODE_ENV": "production"
+    },
+    "lambdaLayers": []
+  }
+}
+

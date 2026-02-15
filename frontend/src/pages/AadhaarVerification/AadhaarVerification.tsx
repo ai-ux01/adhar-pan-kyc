@@ -459,7 +459,7 @@ const AadhaarVerification: React.FC = () => {
         const isProduction = window.location.hostname !== 'localhost' && 
                              window.location.hostname !== '127.0.0.1' &&
                              !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+        return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
       };
       const response = await fetch(`${getApiBaseURL()}/aadhaar-verification/verify-single`, {
         method: 'POST',
@@ -578,7 +578,7 @@ const AadhaarVerification: React.FC = () => {
         const isProduction = window.location.hostname !== 'localhost' && 
                              window.location.hostname !== '127.0.0.1' &&
                              !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+        return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
       };
       const response = await fetch(`${getApiBaseURL()}/aadhaar-verification/verify-otp`, {
         method: 'POST',
@@ -774,7 +774,7 @@ const AadhaarVerification: React.FC = () => {
           const isProduction = window.location.hostname !== 'localhost' && 
                                window.location.hostname !== '127.0.0.1' &&
                                !window.location.hostname.startsWith('192.168.');
-          return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+          return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
         })()}/aadhaar-verification/records/${verificationRecordId}/selfie`,
         {
           method: 'POST',

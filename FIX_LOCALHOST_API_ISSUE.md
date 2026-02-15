@@ -11,7 +11,7 @@ The code was checking `process.env.NODE_ENV === 'production'` to determine the A
 ### 1. Updated Fallback Logic
 Changed from checking `NODE_ENV` to checking the actual hostname:
 - If `REACT_APP_API_URL` is set → use it
-- If hostname is NOT localhost → use production URL (`https://www.avihridsys.in/api`)
+- If hostname is NOT localhost → use production URL (`https://adhar-pan-kyc-1.onrender.com/api`)
 - If hostname IS localhost → use localhost URL (`http://localhost:3002/api`)
 
 ### 2. Files Updated
@@ -31,7 +31,7 @@ Changed from checking `NODE_ENV` to checking the actual hostname:
 4. Add/Update the following variable:
    ```
    Key: REACT_APP_API_URL
-   Value: https://www.avihridsys.in/api
+   Value: https://adhar-pan-kyc-1.onrender.com/api
    Environment: Production (or All)
    ```
 5. Click **"Save"**
@@ -48,10 +48,10 @@ Changed from checking `NODE_ENV` to checking the actual hostname:
 2. Open browser console (F12)
 3. You should see:
    ```
-   🔗 API Base URL: https://www.avihridsys.in/api
-   🔗 REACT_APP_API_URL: https://www.avihridsys.in/api
+   🔗 API Base URL: https://adhar-pan-kyc-1.onrender.com/api
+   🔗 REACT_APP_API_URL: https://adhar-pan-kyc-1.onrender.com/api
    ```
-4. Check Network tab to verify API calls are going to `https://www.avihridsys.in/api`
+4. Check Network tab to verify API calls are going to `https://adhar-pan-kyc-1.onrender.com/api`
 
 ## How It Works Now
 
@@ -69,7 +69,7 @@ const isProduction = window.location.hostname !== 'localhost' &&
                      !window.location.hostname.startsWith('192.168.');
 
 // Use production URL if in production, otherwise localhost
-return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
 ```
 
 ## Testing
@@ -79,8 +79,8 @@ return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/a
 - API calls will go to: `http://localhost:3002/api` ✅
 
 ### Production (AWS Amplify)
-- When deployed to `https://www.avihridsys.in`
-- API calls will go to: `https://www.avihridsys.in/api` ✅
+- When deployed to `https://adhar-pan-kyc-1.onrender.com`
+- API calls will go to: `https://adhar-pan-kyc-1.onrender.com/api` ✅
 - Even if `REACT_APP_API_URL` is not set, it will use production URL based on hostname
 
 ## Troubleshooting
@@ -100,7 +100,7 @@ return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/a
 
 ## Quick Checklist
 
-- [ ] Set `REACT_APP_API_URL=https://www.avihridsys.in/api` in AWS Amplify
+- [ ] Set `REACT_APP_API_URL=https://adhar-pan-kyc-1.onrender.com/api` in AWS Amplify
 - [ ] Redeploy the frontend app
 - [ ] Clear browser cache
 - [ ] Check browser console for API URL

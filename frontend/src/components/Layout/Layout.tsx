@@ -53,7 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         const isProduction = window.location.hostname !== 'localhost' && 
                              window.location.hostname !== '127.0.0.1' &&
                              !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://www.avihridsys.in/api' : 'http://localhost:3002/api';
+        return isProduction ? 'https://adhar-pan-kyc-1.onrender.com/api' : 'http://localhost:3002/api';
       };
       const baseUrl = getApiBaseURL();
       // Use the API endpoint to serve the logo - this ensures proper path resolution and fallback handling
@@ -419,7 +419,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-lg px-4 py-3 shadow-lg">
             <div className="flex items-center space-x-4">
               <p className="text-xs text-gray-600 font-medium">
-                Powered by <span className="text-blue-600 font-semibold">@ DUMMY Software Pvt Ltd</span>
+                Powered by <span className="text-blue-600 font-semibold">@ AVIHR Software Pvt Ltd</span>
               </p>
               <div className="flex items-center space-x-3 text-xs">
                 <a 
