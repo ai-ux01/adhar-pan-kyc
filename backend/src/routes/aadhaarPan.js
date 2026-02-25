@@ -834,9 +834,10 @@ router.post('/verify-single', protect, async (req, res) => {
       status: tempRecord.status
     }, req);
 
+    const isLinked = tempRecord.status === 'linked';
     res.json({
-      success: true,
-      message: 'Aadhaar-PAN linking verification completed',
+      success: isLinked,
+      message: isLinked ? 'Aadhaar-PAN linking verified successfully' : (tempRecord.status === 'not-linked' ? 'Aadhaar and PAN are not linked' : 'Verification failed'),
       data: {
         aadhaarNumber: tempRecord.aadhaarNumber,
         panNumber: tempRecord.panNumber,

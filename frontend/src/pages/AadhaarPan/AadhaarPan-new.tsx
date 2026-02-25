@@ -222,11 +222,20 @@ const AadhaarPan: React.FC = () => {
         name: singleVerificationForm.name.trim()
       });
       
-      setSingleVerificationResult(response.data.data);
-      showToast({
-        type: 'success',
-        message: 'Aadhaar-PAN linking verification completed'
-      });
+      const { success, message, data } = response.data;
+      if (success) {
+        setSingleVerificationResult(data);
+        showToast({
+          type: 'success',
+          message: 'Aadhaar-PAN linking verification completed'
+        });
+      } else {
+        setSingleVerificationResult(data);
+        showToast({
+          type: 'error',
+          message: message || 'Aadhaar and PAN are not linked'
+        });
+      }
       
     } catch (error: any) {
       console.error('Error in single verification:', error);
