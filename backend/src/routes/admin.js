@@ -2444,6 +2444,7 @@ router.get('/qr/:code', async (req, res) => {
       data: {
         userId: user._id,
         userName: user.name,
+        companyName: user?.branding?.companyName || 'the Company',
         hasSelfieAccess: user.moduleAccess && user.moduleAccess.includes('selfie-upload')
       }
     });

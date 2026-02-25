@@ -599,10 +599,14 @@ const AadhaarVerification: React.FC = () => {
 
       const data = await response.json();
 
-      if (data.success) {
+      const isVerified = data.success && (data.data?.status === 'verified' || data.data?.status === 'VALID');
+      if (isVerified) {
         setCurrentStep({ step: 'success', data: data.data });
         setVerificationRecordId(data.data.recordId || null);
         toast.success('Aadhaar verification completed successfully!');
+      } else if (data.success) {
+        setCurrentStep({ step: 'error', data: { message: data.message || 'Invalid OTP. Please try again.' } });
+        toast.error(data.message || 'Invalid OTP. Please try again.');
       } else {
         setCurrentStep({ step: 'error', data: { message: data.message } });
         toast.error(data.message || 'OTP verification failed');

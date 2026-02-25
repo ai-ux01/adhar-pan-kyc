@@ -33,6 +33,7 @@ const QrVerification: React.FC = () => {
   const [selfieUploaded, setSelfieUploaded] = useState(false);
   const [verificationRecordId, setVerificationRecordId] = useState<string | null>(null);
   const [hasSelfieAccess, setHasSelfieAccess] = useState(false);
+  const [companyName, setCompanyName] = useState('the Company');
   const [cameraMode, setCameraMode] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null); 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -46,6 +47,7 @@ const QrVerification: React.FC = () => {
         const userResponse = await api.get(`/admin/qr/${qrCode}`);
         if (userResponse.data.success) {
           setHasSelfieAccess(userResponse.data.data.hasSelfieAccess || false);
+          setCompanyName(userResponse.data.data.companyName || 'the Company');
         }
       } catch (error) {
         console.error('Error fetching user info:', error);
@@ -312,11 +314,15 @@ const QrVerification: React.FC = () => {
 
       const data = response.data;
 
-      if (data.success) {
+      const isVerified = data.success && (data.data?.status === 'verified' || data.data?.status === 'VALID');
+      if (isVerified) {
         setCurrentStep({ step: 'success', data: data.data });
         setVerificationRecordId(data.data.recordId || null);
         setHasSelfieAccess(data.data.hasSelfieAccess || false);
         toast.success('Aadhaar verification completed successfully!');
+      } else if (data.success) {
+        setCurrentStep({ step: 'error', data: { message: data.message || 'Invalid OTP. Please try again.' } });
+        toast.error(data.message || 'Invalid OTP. Please try again.');
       } else {
         setCurrentStep({ step: 'error', data: { message: data.message } });
         toast.error(data.message || 'OTP verification failed');
@@ -370,23 +376,40 @@ const QrVerification: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="consent"
-                  checked={consentAccepted}
-                  onChange={(e) => setConsentAccepted(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  required
-                />
-                <label htmlFor="consent" className="ml-2 block text-sm text-gray-700">
-                  I consent to Aadhaar verification
-                </label>
+              {/* Consent Checkbox - same as main Aadhaar verification */}
+              <div className="flex items-start bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border-2 border-blue-100">
+                <div className="flex items-center h-5">
+                  <input
+                    type="checkbox"
+                    id="consent"
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    required
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="consent" className="font-bold text-gray-700 cursor-pointer">
+                    ✅ Aadhaar Consent Declaration *
+                  </label>
+                  <div className="text-gray-600 mt-1 text-xs space-y-2">
+                    <p className="font-semibold">I hereby voluntarily provide my Aadhaar details to {companyName} for the purpose of employee verification, statutory compliance, and internal record maintenance.</p>
+                    <p className="font-semibold">I confirm and acknowledge that:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>My Aadhaar information will be used only for official and lawful purposes, including identity verification and compliance with applicable laws.</li>
+                      <li>The company shall ensure the confidentiality and security of my Aadhaar details, in accordance with the Aadhaar Act, 2016 and relevant data protection regulations.</li>
+                      <li>I am submitting this information willingly and without any coercion or undue pressure.</li>
+                      <li>I authorize {companyName} to use, store, and process the provided Aadhaar details solely for the purposes stated above.</li>
+                      <li>The information I have provided is true and correct to the best of my knowledge.</li>
+                    </ul>
+                    <p className="font-semibold">I have read and understood the above declaration and provide my consent.</p>
+                  </div>
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !consentAccepted}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Sending OTP...' : 'Send OTP'}
