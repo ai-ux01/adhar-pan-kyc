@@ -1193,8 +1193,8 @@ const AadhaarVerification: React.FC = () => {
                 </div>
               )}
 
-              {/* Step 3: Success */}
-              {currentStep.step === 'success' && (
+              {/* Step 3: Success - only show when status is verified (defense in depth) */}
+              {currentStep.step === 'success' && currentStep.data?.status !== 'rejected' && currentStep.data?.status !== 'invalid' && (
                 <div className="text-center">
                   <div className="flex justify-center mb-8">
                     <div className="relative">
@@ -1423,8 +1423,8 @@ const AadhaarVerification: React.FC = () => {
                 </div>
               )}
 
-              {/* Step 3: Error */}
-              {currentStep.step === 'error' && (
+              {/* Error - also when success step has rejected/invalid status (defense in depth) */}
+              {(currentStep.step === 'error' || (currentStep.step === 'success' && (currentStep.data?.status === 'rejected' || currentStep.data?.status === 'invalid'))) && (
                 <div className="text-center">
                   <div className="flex justify-center mb-8">
                     <div className="relative">
@@ -1438,7 +1438,9 @@ const AadhaarVerification: React.FC = () => {
                     ❌ Verification Failed
                   </h2>
                   <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-                    {currentStep.data?.message || 'An error occurred during verification.'}
+                    {(currentStep.data?.status === 'rejected' || currentStep.data?.status === 'invalid')
+                      ? 'Invalid OTP. Please try again.'
+                      : (currentStep.data?.message || 'An error occurred during verification.')}
                   </p>
                   
                   <button

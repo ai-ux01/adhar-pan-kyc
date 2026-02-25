@@ -463,8 +463,8 @@ const QrVerification: React.FC = () => {
             </div>
           )}
 
-          {/* Step 3: Success */}
-          {currentStep.step === 'success' && (
+          {/* Step 3: Success - only show when status is verified (defense in depth) */}
+          {currentStep.step === 'success' && currentStep.data?.status !== 'rejected' && currentStep.data?.status !== 'invalid' && (
             <div className="text-center space-y-6">
               <div className="flex justify-center mb-8">
                 <div className="relative">
@@ -609,8 +609,8 @@ const QrVerification: React.FC = () => {
             </div>
           )}
 
-          {/* Step 4: Error */}
-          {currentStep.step === 'error' && (
+          {/* Step 4: Error - also when success step has rejected/invalid status (defense in depth) */}
+          {(currentStep.step === 'error' || (currentStep.step === 'success' && (currentStep.data?.status === 'rejected' || currentStep.data?.status === 'invalid'))) && (
             <div className="text-center">
               <div className="flex justify-center mb-8">
                 <div className="relative">
@@ -624,7 +624,9 @@ const QrVerification: React.FC = () => {
                 ❌ Verification Failed
               </h2>
               <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-                {currentStep.data?.message || 'An unexpected error occurred during verification. Please try again.'}
+                {(currentStep.data?.status === 'rejected' || currentStep.data?.status === 'invalid')
+                  ? 'Invalid OTP. Please try again.'
+                  : (currentStep.data?.message || 'An unexpected error occurred during verification. Please try again.')}
               </p>
             </div>
           )}

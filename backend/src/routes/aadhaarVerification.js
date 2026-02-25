@@ -468,9 +468,10 @@ router.post('/verify-otp', protect, async (req, res) => {
       processingTime: verificationRecord.processingTime
     }, req);
 
+    const isVerified = verificationRecord.status === 'verified';
     res.json({
-      success: true,
-      message: 'OTP verification completed successfully',
+      success: isVerified,
+      message: isVerified ? 'OTP verification completed successfully' : 'Invalid OTP. Verification rejected.',
       data: {
         recordId: verificationRecord._id,
         batchId: verificationRecord.batchId,
@@ -891,17 +892,18 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
       source: 'qr_code'
     }, req);
 
+    const isVerified = verificationRecord.status === 'verified';
     res.json({
-      success: true,
-      message: 'Verification completed successfully',
+      success: isVerified,
+      message: isVerified ? 'Verification completed successfully' : 'Invalid OTP. Verification rejected.',
       data: {
         recordId: verificationRecord._id,
         aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-        name: verificationResult.data.name,
-        dateOfBirth: verificationResult.data.date_of_birth,
-        gender: verificationResult.data.gender,
-        address: verificationResult.data.full_address,
-        status: verificationResult.status,
+        name: verificationResult.data?.name || '',
+        dateOfBirth: verificationResult.data?.date_of_birth || '',
+        gender: verificationResult.data?.gender || '',
+        address: verificationResult.data?.full_address || '',
+        status: verificationRecord.status,
         processingTime: processingTime,
         hasSelfieAccess: user.moduleAccess && user.moduleAccess.includes('selfie-upload')
       }
