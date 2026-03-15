@@ -152,9 +152,11 @@ const PrivacyPolicy: React.FC = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-gray-700">
                 <strong>Data Protection Officer:</strong><br />
-                <strong>Email:</strong> privacy@kycaadhaar.com<br />
-                <strong>Phone:</strong> +91-XXX-XXXX-XXXX<br />
-                <strong>Address:</strong> [Your Company Address]<br />
+                <strong>Email:</strong> support@avisoft.in<br />
+                <strong>Phone:</strong> +91-9212171218<br />
+                <strong>Address:</strong> AVI HR SOFTWARE PVT LTD
+                                          D-226, SECTOR-10, NOIDA,UP-201301
+                                          www.avisoft.in<br />
                 <strong>Response Time:</strong> We will respond to your inquiries within 30 days
               </p>
             </div>
