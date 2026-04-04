@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import api from '../../services/api';
+import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
 import { 
@@ -200,7 +200,9 @@ const PanKycRecords: React.FC = () => {
       params.set('limit', String(EXPORT_CAP));
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
-      const response = await api.get(`/pan-kyc/records?${params.toString()}`);
+      const response = await api.get(`/pan-kyc/records?${params.toString()}`, {
+        timeout: HEAVY_REQUEST_TIMEOUT_MS
+      });
       const res = response.data;
       if (!res.success || !Array.isArray(res.data)) {
         showToast({ message: 'Failed to load records for export', type: 'error' });
@@ -263,9 +265,13 @@ const PanKycRecords: React.FC = () => {
           : `${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`,
         type: 'success'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export failed:', error);
-      showToast({ message: 'Failed to export', type: 'error' });
+      const msg =
+        error?.code === 'ECONNABORTED' || String(error?.message || '').includes('timeout')
+          ? 'Export timed out. Wait for the API to finish waking up (e.g. ~1 min on Render), then try again.'
+          : 'Failed to export';
+      showToast({ message: msg, type: 'error' });
     } finally {
       setExporting(false);
     }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import api from '../../services/api';
+import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
 import { 
@@ -331,7 +331,8 @@ const AadhaarVerificationRecords: React.FC = () => {
     params.set('sortBy', filters.sortBy);
     params.set('sortOrder', filters.sortOrder);
     const { data } = await api.get<{ success: boolean; data?: VerificationRecord[]; pagination?: { totalRecords: number } }>(
-      `/aadhaar-verification/records?${params.toString()}`
+      `/aadhaar-verification/records?${params.toString()}`,
+      { timeout: HEAVY_REQUEST_TIMEOUT_MS }
     );
     if (!data.success || !Array.isArray(data.data)) return [];
     return data.data;
@@ -410,9 +411,15 @@ const AadhaarVerificationRecords: React.FC = () => {
       downloadReport('aadhaar-verification-records', format, headers, matrix, 'Aadhaar Verif', jsonPayload);
       const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
       toast.success(`${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error('Failed to export');
+      const timedOut =
+        e?.code === 'ECONNABORTED' || String(e?.message || '').includes('timeout');
+      toast.error(
+        timedOut
+          ? 'Export timed out. Wait for the API to finish waking up, then try again.'
+          : 'Failed to export'
+      );
     } finally {
       setExporting(false);
     }

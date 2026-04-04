@@ -19,6 +19,9 @@ const getApiBaseURL = () => {
 
 const apiBaseURL = getApiBaseURL();
 
+/** Use for heavy GETs (bulk export, many DB decrypts). Default axios timeout is too short after Render cold start. */
+export const HEAVY_REQUEST_TIMEOUT_MS = 180000;
+
 // Log the API URL being used (helpful for debugging)
 if (process.env.NODE_ENV !== 'production' || window.location.hostname === 'localhost') {
   console.log('🔗 API Base URL:', apiBaseURL);
