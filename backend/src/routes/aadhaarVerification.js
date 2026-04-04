@@ -101,7 +101,7 @@ router.get('/dynamic-field-keys', protect, async (req, res) => {
   }
 });
 
-const AADHAAR_VERIFICATION_EXPORT_MAX = 25000;
+const AADHAAR_VERIFICATION_EXPORT_MAX = 200;
 
 // Get all records for a user
 router.get('/records', protect, async (req, res) => {

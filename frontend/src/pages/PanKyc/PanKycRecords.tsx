@@ -186,7 +186,7 @@ const PanKycRecords: React.FC = () => {
   const totalPages = pagination.totalPages;
   const paginatedRecords = filteredRecords;
 
-  const EXPORT_CAP = 25000;
+  const EXPORT_CAP = 200;
 
   const handleExport = async (format: ReportExportFormat) => {
     if (!isAuthenticated || !user) {

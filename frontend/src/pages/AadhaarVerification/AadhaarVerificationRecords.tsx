@@ -318,7 +318,7 @@ const AadhaarVerificationRecords: React.FC = () => {
     }
   };
 
-  const EXPORT_CAP = 25000;
+  const EXPORT_CAP = 200;
 
   const fetchRecordsForExport = async (): Promise<VerificationRecord[]> => {
     const params = new URLSearchParams();

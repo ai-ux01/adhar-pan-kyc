@@ -99,7 +99,7 @@ router.get('/batches', protect, async (req, res) => {
 
 // Get records for a user with server-side pagination (faster: only load one page and decrypt that page)
 // export=1: return up to EXPORT_MAX records matching filters (for CSV download), skip pagination
-const PAN_KYC_EXPORT_MAX = 25000;
+const PAN_KYC_EXPORT_MAX = 200;
 
 router.get('/records', protect, async (req, res) => {
   const startTime = Date.now();
