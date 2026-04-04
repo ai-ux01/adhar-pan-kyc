@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../../services/api';
+import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
+import ExportReportButtons from '../../components/ExportReportButtons';
 import { 
   IdentificationIcon, 
   CheckCircleIcon, 
@@ -195,6 +197,7 @@ interface PaginationInfo {
 }
 
 interface DynamicFieldKey {
+  _id?: string;
   fieldName: string;
   fieldLabel: string;
   fieldType: string;
@@ -215,6 +218,7 @@ const AadhaarVerificationRecords: React.FC = () => {
     hasPrev: false
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<VerificationRecord | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -229,6 +233,13 @@ const AadhaarVerificationRecords: React.FC = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [dynamicFieldLabels, setDynamicFieldLabels] = useState<string[]>([]);
   const [dynamicFieldKeysFromApi, setDynamicFieldKeysFromApi] = useState<DynamicFieldKey[]>([]);
+
+  const tableDynamicFieldLabels = React.useMemo(() => {
+    if (dynamicFieldKeysFromApi.length > 0) {
+      return dynamicFieldKeysFromApi.map((k) => k.fieldLabel || k.fieldName);
+    }
+    return dynamicFieldLabels;
+  }, [dynamicFieldKeysFromApi, dynamicFieldLabels]);
   const [editingRecord, setEditingRecord] = useState<VerificationRecord | null>(null);
   const [editDynamicFields, setEditDynamicFields] = useState<Array<{ label: string; value: string }>>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -304,6 +315,106 @@ const AadhaarVerificationRecords: React.FC = () => {
       toast.error('Failed to load verification records');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const EXPORT_CAP = 25000;
+
+  const fetchRecordsForExport = async (): Promise<VerificationRecord[]> => {
+    const params = new URLSearchParams();
+    params.set('export', '1');
+    params.set('limit', String(EXPORT_CAP));
+    if (searchTerm) params.set('search', searchTerm);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    params.set('sortBy', filters.sortBy);
+    params.set('sortOrder', filters.sortOrder);
+    const { data } = await api.get<{ success: boolean; data?: VerificationRecord[]; pagination?: { totalRecords: number } }>(
+      `/aadhaar-verification/records?${params.toString()}`
+    );
+    if (!data.success || !Array.isArray(data.data)) return [];
+    return data.data;
+  };
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!user) {
+      toast.error('Please log in to export');
+      return;
+    }
+    try {
+      setExporting(true);
+      const rows = await fetchRecordsForExport();
+      if (rows.length === 0) {
+        toast.error('No records to export');
+        return;
+      }
+      const dyn = (r: VerificationRecord) =>
+        (r.dynamicFields || []).map((f) => `${f.label}: ${f.value}`).join(' | ');
+      const headers = [
+        'Batch ID',
+        'Aadhaar Number',
+        'Name',
+        'Date of Birth',
+        'Gender',
+        'Status',
+        'Address',
+        'District',
+        'State',
+        'PIN Code',
+        'Care Of',
+        'Dynamic Fields',
+        'Created At',
+        'Processed At',
+        'Processing Time (ms)',
+        'Error Message'
+      ];
+      const matrix: string[][] = rows.map((r) => [
+        r.batchId,
+        r.aadhaarNumber,
+        r.name,
+        r.dateOfBirth || '',
+        r.gender || '',
+        r.status,
+        r.address || '',
+        r.district || '',
+        r.state || '',
+        r.pinCode || '',
+        r.careOf || '',
+        dyn(r),
+        new Date(r.createdAt).toLocaleString(),
+        r.processedAt ? new Date(r.processedAt).toLocaleString() : '',
+        String(r.processingTime ?? ''),
+        r.errorMessage || ''
+      ]);
+      const jsonPayload = rows.map((r) => ({
+        _id: r._id,
+        batchId: r.batchId,
+        aadhaarNumber: r.aadhaarNumber,
+        name: r.name,
+        dateOfBirth: r.dateOfBirth,
+        gender: r.gender,
+        status: r.status,
+        address: r.address,
+        district: r.district,
+        state: r.state,
+        pinCode: r.pinCode,
+        careOf: r.careOf,
+        dynamicFields: r.dynamicFields,
+        processingTime: r.processingTime,
+        errorMessage: r.errorMessage,
+        createdAt: r.createdAt,
+        processedAt: r.processedAt,
+        hasSelfie: !!(r.selfie && (r.selfie.filename || r.selfie.path))
+      }));
+      downloadReport('aadhaar-verification-records', format, headers, matrix, 'Aadhaar Verif', jsonPayload);
+      const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
+      toast.success(`${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to export');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -444,14 +555,20 @@ const AadhaarVerificationRecords: React.FC = () => {
     setShowDetails(false);
   };
 
-  const fetchDynamicFieldKeys = async (): Promise<DynamicFieldKey[]> => {
+  const enabledCustomFieldsSig = (user?.enabledCustomFields || []).map(String).sort().join(',');
+
+  const fetchDynamicFieldKeys = React.useCallback(async (): Promise<DynamicFieldKey[]> => {
     try {
       const { data } = await api.get<{ success: boolean; data: DynamicFieldKey[] }>(
         '/aadhaar-verification/dynamic-field-keys'
       );
       if (data.success && Array.isArray(data.data)) {
-        setDynamicFieldKeysFromApi(data.data);
-        return data.data;
+        const mapped = data.data.map((k: DynamicFieldKey & { _id?: string }) => ({
+          ...k,
+          _id: k._id != null ? String(k._id) : undefined
+        }));
+        setDynamicFieldKeysFromApi(mapped);
+        return mapped;
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
@@ -460,13 +577,22 @@ const AadhaarVerificationRecords: React.FC = () => {
             params: { appliesTo: 'verification', isActive: 'true' }
           });
           if (res.data.success && Array.isArray(res.data.data)) {
-            const keys: DynamicFieldKey[] = res.data.data.map((f: any) => ({
+            let keys: DynamicFieldKey[] = res.data.data.map((f: any) => ({
+              _id: f._id ? String(f._id) : undefined,
               fieldName: f.fieldName || '',
               fieldLabel: f.fieldLabel || f.fieldName || '',
               fieldType: f.fieldType || 'text',
               placeholder: f.placeholder,
               required: !!f.required
             }));
+            if (user?.role !== 'admin') {
+              const en = user?.enabledCustomFields;
+              if (!en || en.length === 0) keys = [];
+              else {
+                const enSet = new Set(en.map((id) => String(id)));
+                keys = keys.filter((k) => k._id && enSet.has(String(k._id)));
+              }
+            }
             setDynamicFieldKeysFromApi(keys);
             return keys;
           }
@@ -478,11 +604,13 @@ const AadhaarVerificationRecords: React.FC = () => {
       }
     }
     return [];
-  };
+  }, [user?.role, enabledCustomFieldsSig]);
 
   useEffect(() => {
-    fetchDynamicFieldKeys();
-  }, []);
+    if (user) {
+      void fetchDynamicFieldKeys();
+    }
+  }, [user, fetchDynamicFieldKeys]);
 
   const handleEditClick = async (record: VerificationRecord) => {
     setEditingRecord(record);
@@ -659,19 +787,26 @@ const AadhaarVerificationRecords: React.FC = () => {
               )}
             </div>
             
-            {/* Advanced Filters Toggle */}
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`group relative inline-flex items-center px-6 py-4 font-bold rounded-2xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
-                showAdvancedFilters 
-                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-purple-600 hover:to-blue-600'
-              }`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <FunnelIcon className="w-5 h-5 mr-2 relative z-10" />
-              <span className="relative z-10">Filters</span>
-            </button>
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              {/* Advanced Filters Toggle */}
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`group relative inline-flex items-center justify-center px-6 py-4 font-bold rounded-2xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
+                  showAdvancedFilters
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-purple-600 hover:to-blue-600'
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <FunnelIcon className="w-5 h-5 mr-2 relative z-10" />
+                <span className="relative z-10">Filters</span>
+              </button>
+              <ExportReportButtons
+                exporting={exporting}
+                onExport={(f) => void handleExport(f)}
+                variant="dark"
+              />
+            </div>
 
             {isSearching && (
               <div className="flex items-center space-x-2 text-blue-600">
@@ -965,7 +1100,7 @@ const AadhaarVerificationRecords: React.FC = () => {
                         </span>
                       </th>
                       {/* Dynamic Field Headers */}
-                      {dynamicFieldLabels.map((label, index) => (
+                      {tableDynamicFieldLabels.map((label, index) => (
                         <th key={label} className="px-4 py-6 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
                           <span className="flex items-center">
                             <span className={`w-2 h-2 rounded-full mr-2 ${
@@ -1082,7 +1217,7 @@ const AadhaarVerificationRecords: React.FC = () => {
                           )}
                         </td>
                         {/* Dynamic Field Columns */}
-                        {dynamicFieldLabels.map((label, index) => {
+                        {tableDynamicFieldLabels.map((label, index) => {
                           const field = record.dynamicFields?.find(f => f.label === label);
                           return (
                             <td key={label} className="px-4 py-6 whitespace-nowrap text-sm text-gray-900">

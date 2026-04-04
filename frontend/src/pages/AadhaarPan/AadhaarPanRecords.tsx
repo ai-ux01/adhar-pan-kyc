@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
+import ExportReportButtons from '../../components/ExportReportButtons';
 import { 
   MagnifyingGlassIcon,
-  ArrowDownTrayIcon,
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
@@ -62,6 +63,7 @@ const AadhaarPanRecords: React.FC = () => {
   const { showToast } = useToast();
   const [records, setRecords] = useState<AadhaarPanRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [stats, setStats] = useState<RecordsStats>({
     total: 0,
     linked: 0,
@@ -176,27 +178,29 @@ const AadhaarPanRecords: React.FC = () => {
     currentPage * recordsPerPage
   );
 
-  // Download CSV
-  const downloadCSV = () => {
-    const headers = [
-      'Batch ID',
-      'Aadhaar Number',
-      'PAN Number',
-      'Name',
-      'Father Name',
-      'Date of Birth',
-      'Gender',
-      'Status',
-      'Processing Time (ms)',
-      'Retry Count',
-      'Created At',
-      'Processed At',
-      'Error Message'
-    ];
-
-    const csvContent = [
-      headers.join(','),
-      ...filteredRecords.map(record => [
+  const handleExport = (format: ReportExportFormat) => {
+    if (filteredRecords.length === 0) {
+      showToast({ message: 'No records to export', type: 'error' });
+      return;
+    }
+    setExporting(true);
+    try {
+      const headers = [
+        'Batch ID',
+        'Aadhaar Number',
+        'PAN Number',
+        'Name',
+        'Father Name',
+        'Date of Birth',
+        'Gender',
+        'Status',
+        'Processing Time (ms)',
+        'Retry Count',
+        'Created At',
+        'Processed At',
+        'Error Message'
+      ];
+      const matrix: string[][] = filteredRecords.map((record) => [
         record.batchId,
         record.aadhaarNumber,
         record.panNumber,
@@ -205,25 +209,36 @@ const AadhaarPanRecords: React.FC = () => {
         record.dateOfBirth || '',
         record.gender || '',
         record.status,
-        record.processingTime || '',
-        record.retryCount || 0,
+        String(record.processingTime ?? ''),
+        String(record.retryCount ?? 0),
         new Date(record.createdAt).toLocaleString(),
         record.processedAt ? new Date(record.processedAt).toLocaleString() : '',
         record.errorMessage || ''
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `aadhaar-pan-records-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    showToast({
-      message: 'CSV downloaded successfully',
-      type: 'success'
-    });
+      ]);
+      const jsonPayload = filteredRecords.map((r) => ({
+        batchId: r.batchId,
+        aadhaarNumber: r.aadhaarNumber,
+        panNumber: r.panNumber,
+        name: r.name,
+        fatherName: r.fatherName || '',
+        dateOfBirth: r.dateOfBirth || '',
+        gender: r.gender || '',
+        status: r.status,
+        processingTime: r.processingTime,
+        retryCount: r.retryCount,
+        createdAt: r.createdAt,
+        processedAt: r.processedAt || '',
+        errorMessage: r.errorMessage || ''
+      }));
+      downloadReport('aadhaar-pan-records', format, headers, matrix, 'Aadhaar PAN', jsonPayload);
+      const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
+      showToast({
+        message: `${fmt} downloaded (${filteredRecords.length} record${filteredRecords.length === 1 ? '' : 's'})`,
+        type: 'success'
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Get status icon and color
@@ -310,13 +325,11 @@ const AadhaarPanRecords: React.FC = () => {
                 )}
                 Refresh
               </button>
-              <button
-                onClick={downloadCSV}
-                className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold rounded-2xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transform border border-white/30"
-              >
-                <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                Download CSV
-              </button>
+              <ExportReportButtons
+                exporting={exporting}
+                onExport={handleExport}
+                variant="light"
+              />
             </div>
           </div>
         </div>

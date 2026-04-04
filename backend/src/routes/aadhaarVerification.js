@@ -13,6 +13,52 @@ const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadh
 const { getAllowedOrigin } = require('../utils/corsHelper');
 const CustomField = require('../models/CustomField');
 
+/** Custom fields applicable to Aadhaar verification for this viewer (admin = all; others = enabledCustomFields only). */
+async function getVerificationFieldDefinitionsForUser(userId, { forKeysEndpoint = false } = {}) {
+  const select = forKeysEndpoint
+    ? 'fieldName fieldLabel defaultValue placeholder required fieldType'
+    : 'fieldName fieldLabel defaultValue';
+  const user = await User.findById(userId).select('enabledCustomFields role').lean();
+  if (!user) return [];
+  const base = { appliesTo: { $in: ['verification', 'both'] }, isActive: true };
+  if (user.role === 'admin') {
+    return CustomField.find(base)
+      .sort({ displayOrder: 1, createdAt: 1 })
+      .select(select)
+      .lean();
+  }
+  const enabled = user.enabledCustomFields || [];
+  if (!Array.isArray(enabled) || enabled.length === 0) {
+    return [];
+  }
+  const ids = enabled.map((id) => new mongoose.Types.ObjectId(String(id)));
+  return CustomField.find({ ...base, _id: { $in: ids } })
+    .sort({ displayOrder: 1, createdAt: 1 })
+    .select(select)
+    .lean();
+}
+
+function labelsAllowedByDefinitions(defs) {
+  const s = new Set();
+  (defs || []).forEach((f) => {
+    if (f.fieldLabel != null) s.add(String(f.fieldLabel).trim());
+    if (f.fieldName != null) s.add(String(f.fieldName).trim());
+  });
+  return s;
+}
+
+function filterDynamicFieldsArray(incoming, defs) {
+  const allowed = labelsAllowedByDefinitions(defs);
+  if (!Array.isArray(incoming)) return [];
+  return incoming
+    .filter((f) => f && f.label != null && allowed.has(String(f.label).trim()))
+    .map((f) => ({
+      label: String(f.label).trim(),
+      value: f.value != null ? String(f.value).trim() : ''
+    }))
+    .filter((f) => f.label !== '');
+}
+
 // Configure multer for selfie uploads (memory storage - save to MongoDB, not disk)
 const selfieUpload = multer({
   storage: multer.memoryStorage(),
@@ -31,16 +77,13 @@ const selfieUpload = multer({
 // Get dynamic field keys (from custom fields applied to verification) for the edit form
 router.get('/dynamic-field-keys', protect, async (req, res) => {
   try {
-    const fields = await CustomField.find({
-      appliesTo: { $in: ['verification', 'both'] },
-      isActive: true
-    })
-      .sort({ displayOrder: 1, createdAt: 1 })
-      .select('fieldName fieldLabel fieldType placeholder required')
-      .lean();
+    const fields = await getVerificationFieldDefinitionsForUser(req.user.id, {
+      forKeysEndpoint: true
+    });
     res.json({
       success: true,
       data: fields.map((f) => ({
+        _id: f._id,
         fieldName: f.fieldName,
         fieldLabel: f.fieldLabel || f.fieldName,
         fieldType: f.fieldType || 'text',
@@ -58,12 +101,23 @@ router.get('/dynamic-field-keys', protect, async (req, res) => {
   }
 });
 
+const AADHAAR_VERIFICATION_EXPORT_MAX = 25000;
+
 // Get all records for a user
 router.get('/records', protect, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const isExport =
+      String(req.query.export || '') === 'true' ||
+      req.query.export === '1' ||
+      String(req.query.export || '') === 'csv';
+    const page = isExport ? 1 : (parseInt(req.query.page, 10) || 1);
+    const limit = isExport
+      ? Math.min(
+          AADHAAR_VERIFICATION_EXPORT_MAX,
+          Math.max(1, parseInt(req.query.limit, 10) || AADHAAR_VERIFICATION_EXPORT_MAX)
+        )
+      : parseInt(req.query.limit, 10) || 10;
+    const skip = isExport ? 0 : (page - 1) * limit;
     const search = req.query.search || '';
     const status = req.query.status || '';
     const dateFrom = req.query.dateFrom || '';
@@ -140,14 +194,8 @@ router.get('/records', protect, async (req, res) => {
       .limit(limit)
       .lean();
 
-    // Fetch dynamic field keys (from custom fields) to fill default shape for dynamicFields
-    const fieldKeys = await CustomField.find({
-      appliesTo: { $in: ['verification', 'both'] },
-      isActive: true
-    })
-      .sort({ displayOrder: 1, createdAt: 1 })
-      .select('fieldName fieldLabel defaultValue')
-      .lean();
+    // Fetch dynamic field keys allowed for this user (same as verification form / edit modal)
+    const fieldKeys = await getVerificationFieldDefinitionsForUser(req.user.id);
 
     // Decrypt sensitive data for each record
     const decryptedRecords = records.map(record => {
@@ -262,7 +310,8 @@ router.route('/records/:id')
       });
     }
 
-    const normalizedFields = Array.isArray(dynamicFields)
+    const defs = await getVerificationFieldDefinitionsForUser(req.user.id);
+    let normalizedFields = Array.isArray(dynamicFields)
       ? dynamicFields
           .filter((f) => f && typeof f === 'object' && f.label != null)
           .map((f) => ({
@@ -271,6 +320,8 @@ router.route('/records/:id')
           }))
           .filter((f) => f.label !== '')
       : [];
+
+    normalizedFields = filterDynamicFieldsArray(normalizedFields, defs);
 
     record.dynamicFields = normalizedFields;
     await record.save({ validateBeforeSave: false });
@@ -327,9 +378,12 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    const defs = await getVerificationFieldDefinitionsForUser(req.user.id);
+    const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
+
     // Send OTP using Sandbox API
     const startTime = Date.now();
-    const otpResult = await verifyAadhaar(aadhaarNumber, location, dynamicFields);
+    const otpResult = await verifyAadhaar(aadhaarNumber, location, safeDynamicFields);
     
     logger.info("OTP sent successfully - returning transaction ID:", {
       transactionId: otpResult.details.transactionId,
@@ -343,7 +397,7 @@ router.post('/verify-single', protect, async (req, res) => {
       data: {
         aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
         location: location.trim(),
-        dynamicFields: dynamicFields,
+        dynamicFields: safeDynamicFields,
         otpSent: true,
         transactionId: otpResult.details.transactionId,
         apiResponse: otpResult.details.apiResponse,
@@ -404,6 +458,9 @@ router.post('/verify-otp', protect, async (req, res) => {
     
     const otpResult = await verifyAadhaarOTP(transactionId, otp);
 
+    const defs = await getVerificationFieldDefinitionsForUser(req.user.id);
+    const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
+
     // Extract address details from API response
     const apiData = otpResult.data?.data || otpResult.data || {};
     const addressData = apiData.address || {};
@@ -429,7 +486,7 @@ router.post('/verify-otp', protect, async (req, res) => {
       pinCode: addressData.pinCode || apiData.pinCode || '',
       careOf: apiData.care_of || '', // Add care_of field
       photo: apiData.photo || '', // Add photo field
-      dynamicFields: dynamicFields, // Store the dynamic fields from the request
+      dynamicFields: safeDynamicFields,
       status: apiData.status === 'VALID' ? 'verified' : 'rejected',
       verificationDetails: {
         apiResponse: otpResult,
@@ -757,9 +814,16 @@ router.post('/verify-qr/:qrCode', async (req, res) => {
       });
     }
 
+    const defs = await getVerificationFieldDefinitionsForUser(user._id);
+    const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
+    const allowed = labelsAllowedByDefinitions(defs);
+    const safeCustomFields = Object.fromEntries(
+      Object.entries(customFields || {}).filter(([k]) => allowed.has(String(k).trim()))
+    );
+
     // Send OTP using Sandbox API
     const startTime = Date.now();
-    const otpResult = await verifyAadhaar(aadhaarNumber, location, dynamicFields);
+    const otpResult = await verifyAadhaar(aadhaarNumber, location, safeDynamicFields);
     
     res.json({
       success: true,
@@ -767,8 +831,8 @@ router.post('/verify-qr/:qrCode', async (req, res) => {
       data: {
         aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
         location: location.trim(),
-        dynamicFields: dynamicFields,
-        customFields: customFields,
+        dynamicFields: safeDynamicFields,
+        customFields: safeCustomFields,
         otpSent: true,
         transactionId: otpResult.details.transactionId,
         apiResponse: otpResult.details.apiResponse,
@@ -841,6 +905,13 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
     const verificationResult = await verifyAadhaarOTP(transactionId, otp);
     const processingTime = Date.now() - startTime;
 
+    const defs = await getVerificationFieldDefinitionsForUser(user._id);
+    const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
+    const allowed = labelsAllowedByDefinitions(defs);
+    const safeCustomPairs = Object.entries(customFields || {}).filter(([k]) =>
+      allowed.has(String(k).trim())
+    );
+
     // Create verification record
     const verificationRecord = new AadhaarVerification({
       userId: user._id,
@@ -856,13 +927,10 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
       careOf: verificationResult.data.care_of || '',
       photo: verificationResult.data.photo || '',
       dynamicFields: [
-        ...dynamicFields.map(field => ({
-          label: field.label,
-          value: field.value
-        })),
-        ...Object.entries(customFields).map(([key, value]) => ({
+        ...safeDynamicFields,
+        ...safeCustomPairs.map(([key, value]) => ({
           label: key,
-          value: value
+          value: value != null ? String(value) : ''
         }))
       ],
       status: verificationResult.status === 'VALID' ? 'verified' : 'invalid',

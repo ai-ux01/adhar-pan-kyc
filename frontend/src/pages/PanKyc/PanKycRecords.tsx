@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
+import ExportReportButtons from '../../components/ExportReportButtons';
 import { 
   MagnifyingGlassIcon,
-  ArrowDownTrayIcon,
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
@@ -72,6 +73,7 @@ const PanKycRecords: React.FC = () => {
   }, []);
   const [records, setRecords] = useState<PanKycRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [stats, setStats] = useState<RecordsStats>({
     total: 0,
     pending: 0,
@@ -184,46 +186,89 @@ const PanKycRecords: React.FC = () => {
   const totalPages = pagination.totalPages;
   const paginatedRecords = filteredRecords;
 
-  // Download CSV
-  const downloadCSV = () => {
-    const headers = [
-      'Batch ID',
-      'PAN Number',
-      'Name',
-      'Father Name',
-      'Date of Birth',
-      'Status',
-      'Processing Time (ms)',
-      'Created At',
-      'Processed At'
-    ];
+  const EXPORT_CAP = 25000;
 
-    const csvContent = [
-      headers.join(','),
-      ...filteredRecords.map(record => [
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!isAuthenticated || !user) {
+      showToast({ message: 'Please log in to export', type: 'error' });
+      return;
+    }
+    try {
+      setExporting(true);
+      const params = new URLSearchParams();
+      params.set('export', '1');
+      params.set('limit', String(EXPORT_CAP));
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      const response = await api.get(`/pan-kyc/records?${params.toString()}`);
+      const res = response.data;
+      if (!res.success || !Array.isArray(res.data)) {
+        showToast({ message: 'Failed to load records for export', type: 'error' });
+        return;
+      }
+      let rows: PanKycRecord[] = res.data;
+      const totalMatching = res.pagination?.totalRecords ?? rows.length;
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        rows = rows.filter(
+          (record) =>
+            record.panNumber?.toLowerCase().includes(term) ||
+            record.name?.toLowerCase().includes(term) ||
+            record.batchId?.toLowerCase().includes(term)
+        );
+      }
+      if (rows.length === 0) {
+        showToast({ message: 'No records to export', type: 'error' });
+        return;
+      }
+      const headers = [
+        'Batch ID',
+        'PAN Number',
+        'Name',
+        'Father Name',
+        'Date of Birth',
+        'Status',
+        'Processing Time (ms)',
+        'Created At',
+        'Processed At'
+      ];
+      const matrix: string[][] = rows.map((record) => [
         record.batchId,
         record.panNumber,
         record.name,
         record.fatherName || '',
         record.dateOfBirth || '',
         record.status,
-        record.processingTime || '',
+        String(record.processingTime ?? ''),
         new Date(record.createdAt).toLocaleString(),
         record.processedAt ? new Date(record.processedAt).toLocaleString() : ''
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pan-kyc-records-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    showToast({
-      message: 'CSV downloaded successfully',
-      type: 'success'
-    });
+      ]);
+      const jsonPayload = rows.map((r) => ({
+        batchId: r.batchId,
+        panNumber: r.panNumber,
+        name: r.name,
+        fatherName: r.fatherName || '',
+        dateOfBirth: r.dateOfBirth || '',
+        status: r.status,
+        processingTime: r.processingTime,
+        createdAt: r.createdAt,
+        processedAt: r.processedAt || ''
+      }));
+      downloadReport('pan-kyc-records', format, headers, matrix, 'PAN KYC', jsonPayload);
+      const hitExportCap = !searchTerm.trim() && totalMatching > EXPORT_CAP;
+      const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
+      showToast({
+        message: hitExportCap
+          ? `${fmt}: first ${rows.length} of ${totalMatching} records (export limit ${EXPORT_CAP})`
+          : `${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      showToast({ message: 'Failed to export', type: 'error' });
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Get status icon and color
@@ -290,13 +335,11 @@ const PanKycRecords: React.FC = () => {
                 <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
-              <button
-                onClick={downloadCSV}
-                className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold rounded-2xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transform border border-white/30"
-              >
-                <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                Download CSV
-              </button>
+              <ExportReportButtons
+                exporting={exporting}
+                onExport={(f) => void handleExport(f)}
+                variant="light"
+              />
             </div>
           </div>
         </div>

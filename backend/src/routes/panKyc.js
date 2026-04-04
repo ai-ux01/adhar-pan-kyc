@@ -98,14 +98,23 @@ router.get('/batches', protect, async (req, res) => {
 });
 
 // Get records for a user with server-side pagination (faster: only load one page and decrypt that page)
+// export=1: return up to EXPORT_MAX records matching filters (for CSV download), skip pagination
+const PAN_KYC_EXPORT_MAX = 25000;
+
 router.get('/records', protect, async (req, res) => {
   const startTime = Date.now();
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const isExport =
+      String(req.query.export || '') === 'true' ||
+      req.query.export === '1' ||
+      String(req.query.export || '') === 'csv';
+    const page = isExport ? 1 : Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = isExport
+      ? Math.min(PAN_KYC_EXPORT_MAX, Math.max(1, parseInt(req.query.limit, 10) || PAN_KYC_EXPORT_MAX))
+      : Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const statusFilter = req.query.status || 'all';
     const dateFilter = req.query.dateFilter || 'all';
-    const skip = (page - 1) * limit;
+    const skip = isExport ? 0 : (page - 1) * limit;
 
     const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
     if (statusFilter !== 'all') {

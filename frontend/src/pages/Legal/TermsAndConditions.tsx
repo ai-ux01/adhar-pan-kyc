@@ -126,9 +126,11 @@ const TermsAndConditions: React.FC = () => {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-gray-700">
-                <strong>Email:</strong> support@kycaadhaar.com<br />
-                <strong>Phone:</strong> +91-XXX-XXXX-XXXX<br />
-                <strong>Address:</strong> [Your Company Address]
+                <strong>Email:</strong> support@avisoft.in<br />
+                <strong>Phone:</strong> +91-9212171218<br />
+                <strong>Address:</strong> AVI HR SOFTWARE PVT LTD<br />
+                D-226, SECTOR-10, NOIDA,UP-201301<br />
+                www.avisoft.in<br />
               </p>
             </div>
           </div>
