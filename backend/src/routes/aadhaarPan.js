@@ -11,14 +11,47 @@ const { logAadhaarPanEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const axios = require('axios');
 
+const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
+
+/** Sandbox pan-aadhaar/status JSON body (field order matches API examples). */
+function buildPanAadhaarStatusRequestBody(aadhaarNumber, panNumber, consent, reason) {
+  const consentNorm =
+    consent != null && String(consent).trim() !== ''
+      ? String(consent).trim().toLowerCase()
+      : 'y';
+  const reasonNorm =
+    reason != null && String(reason).trim() !== ''
+      ? String(reason).trim()
+      : 'For Testing';
+
+  return {
+    '@entity': SANDBOX_PAN_AADHAAR_STATUS_ENTITY,
+    pan: String(panNumber || '').replace(/\s/g, '').toUpperCase(),
+    aadhaar_number: String(aadhaarNumber || '').replace(/\s/g, ''),
+    consent: consentNorm,
+    reason: reasonNorm,
+  };
+}
+
 // Function to check Aadhaar-PAN status with Sandbox API
-async function checkAadhaarPANStatusWithSandbox(aadhaarNumber, panNumber, consent, reason) {
+async function checkAadhaarPANStatusWithSandbox(
+  aadhaarNumber,
+  panNumber,
+  consent = 'y',
+  reason = 'For Testing'
+) {
   try {
-    logger.info('Starting Aadhaar-PAN status check:', {
-      aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-      panNumber: panNumber.toUpperCase(),
+    const requestBody = buildPanAadhaarStatusRequestBody(
+      aadhaarNumber,
+      panNumber,
       consent,
       reason
+    );
+    logger.info('Starting Aadhaar-PAN status check:', {
+      aadhaarNumber: requestBody.aadhaar_number,
+      panNumber: requestBody.pan,
+      consent: requestBody.consent,
+      reason: requestBody.reason
     });
 
     logger.info('Starting Sandbox API status check...');
@@ -58,13 +91,7 @@ async function checkAadhaarPANStatusWithSandbox(aadhaarNumber, panNumber, consen
         "x-api-key": process.env.SANDBOX_API_KEY,
         "x-accept-cache": "true",
       },
-      body: JSON.stringify({
-        "@entity": "in.co.sandbox.kyc.pan_aadhaar.status",
-        aadhaar_number: aadhaarNumber.replace(/\s/g, ''),
-        pan: panNumber.toUpperCase(),
-        consent: "Y",
-        reason: "KYC Verification",
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const verifyData = await verifyResponse.json();
@@ -511,9 +538,7 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
           } else {
             const verificationResult = await checkAadhaarPANStatusWithSandbox(
               aadhaar,
-              pan,
-              'Y',
-              'KYC Verification'
+              pan
             );
             const processingTime = Date.now() - startTime;
             const status = verificationResult.valid ? 'linked' : 'not-linked';
@@ -779,9 +804,7 @@ router.post('/verify-single', protect, async (req, res) => {
     const startTime = Date.now();
     const verificationResult = await checkAadhaarPANStatusWithSandbox(
       tempRecord.aadhaarNumber,
-      tempRecord.panNumber,
-      'Y',
-      'KYC Verification'
+      tempRecord.panNumber
     );
     const processingTime = Date.now() - startTime;
 
@@ -1037,9 +1060,7 @@ router.post('/verify', protect, async (req, res) => {
           // Check status with Sandbox API
           const verificationResult = await checkAadhaarPANStatusWithSandbox(
             decryptedRecord.aadhaarNumber,
-            decryptedRecord.panNumber,
-            'Y',
-            'KYC Verification'
+            decryptedRecord.panNumber
           );
 
           // Update record with verification result
@@ -1204,9 +1225,7 @@ router.post('/status', protect, async (req, res) => {
           // Check status with Sandbox API
           const verificationResult = await checkAadhaarPANStatusWithSandbox(
             decryptedRecord.aadhaarNumber,
-            decryptedRecord.panNumber,
-            'Y',
-            'KYC Verification'
+            decryptedRecord.panNumber
           );
 
           // Update record status
@@ -1287,7 +1306,7 @@ router.post('/status', protect, async (req, res) => {
 
     } else {
       // Single verification
-      const { aadhaarNumber, panNumber } = req.body;
+      const { aadhaarNumber, panNumber, consent, reason } = req.body;
 
       // Validate required fields
       if (!aadhaarNumber || !panNumber) {
@@ -1322,9 +1341,6 @@ router.post('/status', protect, async (req, res) => {
 
       logger.info('Authenticating with Sandbox API...');
 
-      // Call Sandbox API for Aadhaar-PAN status
-      const axios = require('axios');
-      
       // First authenticate with Sandbox API
       const authResponse = await axios.post('https://api.sandbox.co.in/authenticate', {
         x_api_key: process.env.SANDBOX_API_KEY,
@@ -1355,13 +1371,12 @@ router.post('/status', protect, async (req, res) => {
           'authorization': accessToken,
           'x-api-key': process.env.SANDBOX_API_KEY
         },
-        data: {
-          '@entity': 'in.co.sandbox.kyc.pan_aadhaar.status',
-          aadhaar_number: aadhaarNumber.replace(/\s/g, ''),
-          pan: panNumber.toUpperCase(),
-          consent: "Y",
-          reason: "KYC Verification",  
-        }
+        data: buildPanAadhaarStatusRequestBody(
+          aadhaarNumber,
+          panNumber,
+          consent,
+          reason
+        )
       };
 
       try {
