@@ -17,7 +17,16 @@ import {
   ArrowDownTrayIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { validateAadhaar, validatePAN, validateName, filterAadhaarInput, filterPANInput, filterNameInput, getValidationStatus } from '../../utils/validation';
+import {
+  validateAadhaar,
+  validatePAN,
+  validateName,
+  filterAadhaarInput,
+  filterPANInput,
+  filterNameInput,
+  getValidationStatus,
+  getPanAadhaarLinkStatusFromSandboxPayload
+} from '../../utils/validation';
 
 interface Batch {
   _id: string;
@@ -475,32 +484,59 @@ const AadhaarPan: React.FC = () => {
     try {
       setSingleVerificationVerifying(true);
       
-      const response = await api.post('/aadhaar-pan/verify-single', {
+      const response = await api.post('/aadhaar-pan/status', {
         aadhaarNumber: singleVerificationForm.aadhaarNumber.replace(/\s/g, ''),
-        panNumber: singleVerificationForm.panNumber.toUpperCase(),
-        name: singleVerificationForm.name.trim()
+        panNumber: singleVerificationForm.panNumber.toUpperCase()
       });
-      
+
       const { success, message, data } = response.data;
-      if (success) {
-        setSingleVerificationResult(data);
+      if (!success || !data) {
+        showToast({
+          type: 'error',
+          message: message || 'Failed to check Aadhaar-PAN status'
+        });
+        return;
+      }
+
+      const linkStatus = getPanAadhaarLinkStatusFromSandboxPayload(data.apiResponse);
+      const normalized = {
+        ...data,
+        name: singleVerificationForm.name.trim(),
+        status: linkStatus,
+        verificationDetails: data.apiResponse
+          ? { apiResponse: data.apiResponse, source: data.source }
+          : undefined
+      };
+      setSingleVerificationResult(normalized);
+
+      if (linkStatus === 'linked') {
         showToast({
           type: 'success',
           message: 'Aadhaar-PAN linking verified successfully'
         });
       } else {
-        setSingleVerificationResult(data);
         showToast({
           type: 'error',
-          message: message || 'Aadhaar and PAN are not linked'
+          message: 'Aadhaar and PAN are not linked'
         });
       }
-      
     } catch (error: any) {
       console.error('Error in single verification:', error);
+      const errBody = error.response?.data;
+      const payload = errBody?.data;
+      if (payload && typeof payload === 'object' && payload.status === 'error') {
+        setSingleVerificationResult({
+          ...payload,
+          name: singleVerificationForm.name.trim(),
+          verificationDetails: {
+            error: errBody.error || errBody.message,
+            source: payload.source
+          }
+        });
+      }
       showToast({
         type: 'error',
-        message: error.response?.data?.message || 'Failed to verify Aadhaar-PAN linking'
+        message: errBody?.message || 'Failed to verify Aadhaar-PAN linking'
       });
     } finally {
       setSingleVerificationVerifying(false);
@@ -525,6 +561,9 @@ const AadhaarPan: React.FC = () => {
         return <XCircleIcon className="h-5 w-5 text-red-500" />;
       case 'pending':
         return <ClockIcon className="h-5 w-5 text-blue-500" />;
+      case 'error':
+      case 'invalid':
+        return <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />;
       default:
         return <ClockIcon className="h-5 w-5 text-gray-500" />;
     }
@@ -538,6 +577,9 @@ const AadhaarPan: React.FC = () => {
         return 'bg-red-100 text-red-800';
       case 'pending':
         return 'bg-blue-100 text-blue-800';
+      case 'error':
+      case 'invalid':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }

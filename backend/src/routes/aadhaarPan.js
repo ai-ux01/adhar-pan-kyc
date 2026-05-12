@@ -106,68 +106,6 @@ async function checkAadhaarPANStatusWithSandbox(aadhaarNumber, panNumber, consen
   }
 }
 
-// Simulate Aadhaar-PAN linking verification function
-const simulateAadhaarPanLinking = async (record) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-  
-  // Simulate verification logic
-  const aadhaarNumber = record.aadhaarNumber;
-  const panNumber = record.panNumber;
-  const name = record.name;
-  
-  // Simple validation simulation
-  const isValidAadhaar = /^\d{12}$/.test(aadhaarNumber.replace(/\s/g, ''));
-  const isValidPAN = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panNumber);
-  const isValidName = name && name.length >= 2;
-  
-  let status = 'linked';
-  let details = {
-    message: 'Aadhaar-PAN linking verified successfully',
-    confidence: 95,
-    dataMatch: true
-  };
-  
-  if (!isValidAadhaar) {
-    status = 'invalid';
-    details = {
-      message: 'Invalid Aadhaar number format',
-      confidence: 0,
-      dataMatch: false
-    };
-  } else if (!isValidPAN) {
-    status = 'invalid';
-    details = {
-      message: 'Invalid PAN number format',
-      confidence: 0,
-      dataMatch: false
-    };
-  } else if (!isValidName) {
-    status = 'invalid';
-    details = {
-      message: 'Invalid name format',
-      confidence: 0,
-      dataMatch: false
-    };
-  } else {
-    // Simulate random verification failures (15% chance)
-    if (Math.random() < 0.15) {
-      status = 'not-linked';
-      details = {
-        message: 'Aadhaar and PAN are not linked in government records',
-        confidence: 30,
-        dataMatch: false
-      };
-    }
-  }
-  
-  return {
-    status,
-    details,
-    processingTime: Math.floor(Math.random() * 2000) + 500
-  };
-};
-
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -533,74 +471,100 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
       
       for (const record of batch) {
         try {
-          // Simulate API call (replace with actual API integration)
           const startTime = Date.now();
-          
-          // Mock linking verification logic
-          const randomValue = Math.random();
-          let status, linkingStatus;
-          
-          if (randomValue > 0.6) {
-            status = 'linked';
-            linkingStatus = 'linked';
-          } else if (randomValue > 0.3) {
-            status = 'not-linked';
-            linkingStatus = 'not-linked';
+          const decryptedRecord = record.decryptData();
+          const aadhaar = String(decryptedRecord.aadhaarNumber || '').replace(/\s/g, '');
+          const pan = String(decryptedRecord.panNumber || '').replace(/\s/g, '').toUpperCase();
+          const aadhaarRegex = /^\d{12}$/;
+          const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+          if (!aadhaarRegex.test(aadhaar) || !panRegex.test(pan)) {
+            const processingTime = Date.now() - startTime;
+            record.status = 'invalid';
+            record.isProcessed = true;
+            record.processedAt = new Date();
+            record.processingTime = processingTime;
+            record.linkingDetails = {
+              apiResponse: { message: 'Invalid Aadhaar or PAN format in uploaded row' },
+              linkingDate: new Date(),
+              linkingStatus: 'invalid',
+              lastChecked: new Date(),
+              remarks: 'Invalid data provided'
+            };
+            record.errorMessage = 'Invalid Aadhaar or PAN format';
+            await record.save();
+
+            results.push({
+              recordId: record._id,
+              status: 'invalid',
+              linkingStatus: 'invalid',
+              processingTime
+            });
+
+            await logAadhaarPanEvent('aadhaar_pan_verification', req.user.id, {
+              recordId: record._id,
+              batchId: batchId,
+              status: 'invalid',
+              linkingStatus: 'invalid',
+              processingTime
+            }, req);
           } else {
-            status = 'invalid';
-            linkingStatus = 'invalid';
+            const verificationResult = await checkAadhaarPANStatusWithSandbox(
+              aadhaar,
+              pan,
+              'Y',
+              'KYC Verification'
+            );
+            const processingTime = Date.now() - startTime;
+            const status = verificationResult.valid ? 'linked' : 'not-linked';
+            const linkingStatus = status;
+
+            record.status = status;
+            record.isProcessed = true;
+            record.processedAt = new Date();
+            record.processingTime = processingTime;
+            record.errorMessage = undefined;
+            record.linkingDetails = {
+              apiResponse: verificationResult.sandboxApiResponse,
+              linkingDate: new Date(),
+              linkingStatus,
+              lastChecked: new Date(),
+              remarks: verificationResult.valid
+                ? 'Aadhaar-PAN linked successfully'
+                : 'Aadhaar-PAN not linked'
+            };
+            record.verificationDetails = {
+              ...verificationResult,
+              verifiedAt: new Date(),
+              source: 'sandbox_api'
+            };
+
+            await record.save();
+
+            results.push({
+              recordId: record._id,
+              status,
+              linkingStatus,
+              processingTime
+            });
+
+            await logAadhaarPanEvent('aadhaar_pan_verification', req.user.id, {
+              recordId: record._id,
+              batchId: batchId,
+              status,
+              linkingStatus,
+              processingTime
+            }, req);
           }
-          
-          const processingTime = Date.now() - startTime;
-          
-          // Update record
-          record.status = status;
-          record.isProcessed = true;
-          record.processedAt = new Date();
-          record.processingTime = processingTime;
-          record.linkingDetails = {
-            apiResponse: {
-              status: status,
-              linkingStatus: linkingStatus,
-              timestamp: new Date(),
-              processingTime: processingTime
-            },
-            linkingDate: new Date(),
-            linkingStatus: linkingStatus,
-            lastChecked: new Date(),
-            remarks: status === 'linked' ? 'Aadhaar-PAN linked successfully' : 
-                     status === 'not-linked' ? 'Aadhaar-PAN not linked' : 'Invalid data provided'
-          };
-          
-          await record.save();
-          
-                    // Include Sandbox API response in error details
-          results.push({
-            recordId: record._id,
-            status: status,
-            linkingStatus: linkingStatus,
-            processingTime: processingTime
-          });
-
-          // Log verification event
-          await logAadhaarPanEvent('aadhaar_pan_verification', req.user.id, {
-            recordId: record._id,
-            batchId: batchId,
-            status: status,
-            linkingStatus: linkingStatus,
-            processingTime: processingTime
-          }, req);
-
         } catch (error) {
           logger.error(`Error processing record ${record._id}:`, error);
-          
+
           record.status = 'error';
           record.errorMessage = error.message;
           record.isProcessed = true;
           record.processedAt = new Date();
           await record.save();
-          
-                    // Include Sandbox API response in error details
+
           results.push({
             recordId: record._id,
             status: 'error',
@@ -609,11 +573,8 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
             sandboxApiStatus: error.sandboxApiStatus
           });
         }
-      }
-      
-      // Add delay between batches to avoid overwhelming the API
-      if (i + batchSize < pendingRecords.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
@@ -815,14 +776,26 @@ router.post('/verify-single', protect, async (req, res) => {
       status: 'pending'
     });
 
-    // Simulate verification process (replace with actual API call)
-    const verificationResult = await simulateAadhaarPanLinking(tempRecord);
+    const startTime = Date.now();
+    const verificationResult = await checkAadhaarPANStatusWithSandbox(
+      tempRecord.aadhaarNumber,
+      tempRecord.panNumber,
+      'Y',
+      'KYC Verification'
+    );
+    const processingTime = Date.now() - startTime;
 
-    // Update record with verification result
-    tempRecord.status = verificationResult.status;
-    tempRecord.verificationDetails = verificationResult.details;
+    const status = verificationResult.valid ? 'linked' : 'not-linked';
+    tempRecord.status = status;
+    tempRecord.verificationDetails = {
+      message: verificationResult.message,
+      valid: verificationResult.valid,
+      sandboxApiResponse: verificationResult.sandboxApiResponse,
+      source: verificationResult.source,
+      verifiedAt: new Date()
+    };
     tempRecord.processedAt = new Date();
-    tempRecord.processingTime = verificationResult.processingTime;
+    tempRecord.processingTime = processingTime;
 
     await tempRecord.save();
 
@@ -837,7 +810,11 @@ router.post('/verify-single', protect, async (req, res) => {
     const isLinked = tempRecord.status === 'linked';
     res.json({
       success: isLinked,
-      message: isLinked ? 'Aadhaar-PAN linking verified successfully' : (tempRecord.status === 'not-linked' ? 'Aadhaar and PAN are not linked' : 'Verification failed'),
+      message: isLinked
+        ? 'Aadhaar-PAN linking verified successfully'
+        : tempRecord.status === 'not-linked'
+          ? 'Aadhaar and PAN are not linked'
+          : 'Verification failed',
       data: {
         aadhaarNumber: tempRecord.aadhaarNumber,
         panNumber: tempRecord.panNumber,

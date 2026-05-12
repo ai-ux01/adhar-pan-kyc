@@ -15,7 +15,13 @@ import {
   ArrowDownTrayIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { validateAadhaar, validatePAN, filterAadhaarInput, filterPANInput } from '../../utils/validation';
+import {
+  validateAadhaar,
+  validatePAN,
+  filterAadhaarInput,
+  filterPANInput,
+  getPanAadhaarLinkStatusFromSandboxPayload
+} from '../../utils/validation';
 
 interface Batch {
   _id: string;
@@ -216,32 +222,59 @@ const AadhaarPan: React.FC = () => {
     try {
       setSingleVerificationVerifying(true);
       
-      const response = await api.post('/aadhaar-pan/verify-single', {
+      const response = await api.post('/aadhaar-pan/status', {
         aadhaarNumber: singleVerificationForm.aadhaarNumber.replace(/\s/g, ''),
-        panNumber: singleVerificationForm.panNumber.toUpperCase(),
-        name: singleVerificationForm.name.trim()
+        panNumber: singleVerificationForm.panNumber.toUpperCase()
       });
-      
+
       const { success, message, data } = response.data;
-      if (success) {
-        setSingleVerificationResult(data);
-        showToast({
-          type: 'success',
-          message: 'Aadhaar-PAN linking verification completed'
-        });
-      } else {
-        setSingleVerificationResult(data);
+      if (!success || !data) {
         showToast({
           type: 'error',
-          message: message || 'Aadhaar and PAN are not linked'
+          message: message || 'Failed to check Aadhaar-PAN status'
+        });
+        return;
+      }
+
+      const linkStatus = getPanAadhaarLinkStatusFromSandboxPayload(data.apiResponse);
+      const normalized = {
+        ...data,
+        name: singleVerificationForm.name.trim(),
+        status: linkStatus,
+        verificationDetails: data.apiResponse
+          ? { apiResponse: data.apiResponse, source: data.source }
+          : undefined
+      };
+      setSingleVerificationResult(normalized);
+
+      if (linkStatus === 'linked') {
+        showToast({
+          type: 'success',
+          message: 'Aadhaar-PAN linking verified successfully'
+        });
+      } else {
+        showToast({
+          type: 'error',
+          message: 'Aadhaar and PAN are not linked'
         });
       }
-      
     } catch (error: any) {
       console.error('Error in single verification:', error);
+      const errBody = error.response?.data;
+      const payload = errBody?.data;
+      if (payload && typeof payload === 'object' && payload.status === 'error') {
+        setSingleVerificationResult({
+          ...payload,
+          name: singleVerificationForm.name.trim(),
+          verificationDetails: {
+            error: errBody.error || errBody.message,
+            source: payload.source
+          }
+        });
+      }
       showToast({
         type: 'error',
-        message: error.response?.data?.message || 'Failed to verify Aadhaar-PAN linking'
+        message: errBody?.message || 'Failed to verify Aadhaar-PAN linking'
       });
     } finally {
       setSingleVerificationVerifying(false);

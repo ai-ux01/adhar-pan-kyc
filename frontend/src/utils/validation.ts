@@ -197,6 +197,29 @@ export const filterDateInput = (value: string): string => {
   return value.replace(/[^0-9-]/g, '');
 };
 
+/**
+ * Maps Sandbox `kyc/pan-aadhaar/status` JSON to linked / not-linked.
+ * Mirrors backend `checkAadhaarPANStatusWithSandbox` (aadhaarPan.js).
+ */
+export const getPanAadhaarLinkStatusFromSandboxPayload = (
+  apiResponse: unknown
+): 'linked' | 'not-linked' => {
+  if (!apiResponse || typeof apiResponse !== 'object') {
+    return 'not-linked';
+  }
+  const root = apiResponse as Record<string, unknown>;
+  const inner =
+    root.data && typeof root.data === 'object'
+      ? (root.data as Record<string, unknown>)
+      : root;
+  const seeding = String(inner.aadhaar_seeding_status ?? '').toLowerCase();
+  const status = String(inner.status ?? '').toLowerCase();
+  if (seeding === 'y' || status === 'valid') {
+    return 'linked';
+  }
+  return 'not-linked';
+};
+
 // Get validation status for UI
 export const getValidationStatus = (value: string, validator: (val: string) => ValidationResult) => {
   if (!value) {
