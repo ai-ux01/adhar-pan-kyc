@@ -306,6 +306,54 @@ router.get('/batch/:batchId', protect, async (req, res) => {
   }
 });
 
+/** Match upload header to one of the allowed aliases (exact key, then case-insensitive). */
+function resolveUploadedColumnKey(firstRow, possibleNames) {
+  if (!firstRow || typeof firstRow !== 'object') return null;
+  const keys = Object.keys(firstRow);
+  for (const possibleName of possibleNames) {
+    if (Object.prototype.hasOwnProperty.call(firstRow, possibleName)) {
+      return possibleName;
+    }
+  }
+  const lowerToActual = new Map(keys.map((k) => [k.toLowerCase(), k]));
+  for (const possibleName of possibleNames) {
+    const hit = lowerToActual.get(String(possibleName).toLowerCase());
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Download a valid sample .xlsx for upload (client-side fake XML was not parseable by XLSX.readFile)
+router.get('/sample-template', protect, async (req, res) => {
+  try {
+    const rows = [
+      ['aadhaarNumber', 'panNumber', 'name'],
+      ['123456789012', 'ABCDE1234F', 'John Doe'],
+      ['987654321098', 'FGHIJ5678K', 'Jane Smith'],
+      ['456789123456', 'LMNOP9012Q', 'Bob Johnson']
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="sample_aadhaar_pan.xlsx"'
+    );
+    res.send(Buffer.from(buf));
+  } catch (error) {
+    logger.error('Error generating Aadhaar-PAN sample template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate sample template'
+    });
+  }
+});
+
 // Upload Aadhaar-PAN file
 router.post('/upload', protect, upload.single('file'), async (req, res) => {
   try {
@@ -347,20 +395,13 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     const columnMap = {};
     
     // Check each required column
-    requiredColumns.forEach(requiredCol => {
+    requiredColumns.forEach((requiredCol) => {
       const possibleNames = columnMapping[requiredCol];
-      let found = false;
-      
-      for (const possibleName of possibleNames) {
-        if (firstRow.hasOwnProperty(possibleName)) {
-          columnMap[requiredCol] = possibleName;
-          found = true;
-          logger.info(`Column ${requiredCol} found as: ${possibleName}`);
-          break;
-        }
-      }
-      
-      if (!found) {
+      const matchedKey = resolveUploadedColumnKey(firstRow, possibleNames);
+      if (matchedKey) {
+        columnMap[requiredCol] = matchedKey;
+        logger.info(`Column ${requiredCol} found as: ${matchedKey}`);
+      } else {
         missingColumns.push(requiredCol);
         logger.info(`Column ${requiredCol} not found`);
       }

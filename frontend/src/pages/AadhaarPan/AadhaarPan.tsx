@@ -750,37 +750,26 @@ const AadhaarPan: React.FC = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          // Create sample Excel content for Aadhaar-PAN linking
-                          const sampleData = [
-                            ['aadhaarNumber', 'panNumber', 'name'],
-                            ['123456789012', 'ABCDE1234F', 'John Doe'],
-                            ['987654321098', 'FGHIJ5678K', 'Jane Smith'],
-                            ['456789123456', 'LMNOP9012Q', 'Bob Johnson']
-                          ];
-                          
-                          // Convert to Excel format (XLSX)
-                          const xlsxContent = `<?xml version="1.0" encoding="UTF-8"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">
-<Worksheet ss:Name="Sheet1">
-<Table>
-${sampleData.map(row => 
-  `<Row>${row.map(cell => `<Cell><Data ss:Type="String">${cell}</Data></Cell>`).join('')}</Row>`
-).join('')}
-</Table>
-</Worksheet>
-</Workbook>`;
-                          
-                          // Create and download file
-                          const blob = new Blob([xlsxContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                          const url = window.URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          link.setAttribute('download', 'sample_aadhaar_pan.xlsx');
-                          document.body.appendChild(link);
-                          link.click();
-                          link.remove();
-                          window.URL.revokeObjectURL(url);
+                        onClick={async () => {
+                          try {
+                            const response = await api.get('/aadhaar-pan/sample-template', {
+                              responseType: 'blob'
+                            });
+                            const url = window.URL.createObjectURL(response.data);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.setAttribute('download', 'sample_aadhaar_pan.xlsx');
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            window.URL.revokeObjectURL(url);
+                          } catch (err) {
+                            console.error(err);
+                            showToast({
+                              type: 'error',
+                              message: 'Failed to download sample file'
+                            });
+                          }
                         }}
                         className="inline-flex items-center px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-lg hover:bg-green-600 transition-colors"
                       >
