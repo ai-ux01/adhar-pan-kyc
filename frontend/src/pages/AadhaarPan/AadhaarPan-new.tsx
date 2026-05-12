@@ -23,6 +23,8 @@ import {
   getPanAadhaarLinkStatusFromSandboxPayload
 } from '../../utils/validation';
 
+const AADHAAR_PAN_STATUS_META = { consent: 'y' as const, reason: 'For Testing' as const };
+
 interface Batch {
   _id: string;
   totalRecords: number;
@@ -224,7 +226,8 @@ const AadhaarPan: React.FC = () => {
       
       const response = await api.post('/aadhaar-pan/status', {
         aadhaarNumber: singleVerificationForm.aadhaarNumber.replace(/\s/g, ''),
-        panNumber: singleVerificationForm.panNumber.toUpperCase()
+        panNumber: singleVerificationForm.panNumber.toUpperCase(),
+        ...AADHAAR_PAN_STATUS_META
       });
 
       const { success, message, data } = response.data;

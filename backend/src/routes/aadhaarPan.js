@@ -13,8 +13,7 @@ const axios = require('axios');
 
 const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
 
-/** Sandbox pan-aadhaar/status JSON body (field order matches API examples). */
-function buildPanAadhaarStatusRequestBody(aadhaarNumber, panNumber, consent, reason) {
+function normalizedPanAadhaarConsentReason(consent, reason) {
   const consentNorm =
     consent != null && String(consent).trim() !== ''
       ? String(consent).trim().toLowerCase()
@@ -23,6 +22,13 @@ function buildPanAadhaarStatusRequestBody(aadhaarNumber, panNumber, consent, rea
     reason != null && String(reason).trim() !== ''
       ? String(reason).trim()
       : 'For Testing';
+  return { consent: consentNorm, reason: reasonNorm };
+}
+
+/** Sandbox pan-aadhaar/status JSON body (field order matches API examples). */
+function buildPanAadhaarStatusRequestBody(aadhaarNumber, panNumber, consent, reason) {
+  const { consent: consentNorm, reason: reasonNorm } =
+    normalizedPanAadhaarConsentReason(consent, reason);
 
   return {
     '@entity': SANDBOX_PAN_AADHAAR_STATUS_ENTITY,
@@ -1181,7 +1187,7 @@ router.post('/status', protect, async (req, res) => {
       req.setTimeout(300000); // 5 minutes timeout
       res.setTimeout(300000); // 5 minutes timeout
       
-      const { recordIds } = req.body;
+      const { recordIds, consent, reason } = req.body;
       const totalRecords = recordIds.length;
       const results = [];
 
@@ -1225,7 +1231,9 @@ router.post('/status', protect, async (req, res) => {
           // Check status with Sandbox API
           const verificationResult = await checkAadhaarPANStatusWithSandbox(
             decryptedRecord.aadhaarNumber,
-            decryptedRecord.panNumber
+            decryptedRecord.panNumber,
+            consent,
+            reason
           );
 
           // Update record status
@@ -1287,6 +1295,7 @@ router.post('/status', protect, async (req, res) => {
       const verified = results.filter(r => r.status === 'linked').length;
       const rejected = results.filter(r => r.status === 'not-linked').length;
       const error = results.filter(r => r.status === 'error').length;
+      const consentReason = normalizedPanAadhaarConsentReason(consent, reason);
 
       res.json({
         success: true,
@@ -1296,6 +1305,8 @@ router.post('/status', protect, async (req, res) => {
           verified,
           rejected,
           error,
+          consent: consentReason.consent,
+          reason: consentReason.reason,
           sourceBreakdown: {
             sandbox_api: verified + rejected,
             error: error
@@ -1334,9 +1345,18 @@ router.post('/status', protect, async (req, res) => {
         });
       }
 
+      const sandboxRequestBody = buildPanAadhaarStatusRequestBody(
+        aadhaarNumber,
+        panNumber,
+        consent,
+        reason
+      );
+
       logger.info('Starting Aadhaar-PAN status check:', {
-        aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-        panNumber: panNumber.toUpperCase()
+        aadhaarNumber: sandboxRequestBody.aadhaar_number,
+        panNumber: sandboxRequestBody.pan,
+        consent: sandboxRequestBody.consent,
+        reason: sandboxRequestBody.reason
       });
 
       logger.info('Authenticating with Sandbox API...');
@@ -1371,12 +1391,7 @@ router.post('/status', protect, async (req, res) => {
           'authorization': accessToken,
           'x-api-key': process.env.SANDBOX_API_KEY
         },
-        data: buildPanAadhaarStatusRequestBody(
-          aadhaarNumber,
-          panNumber,
-          consent,
-          reason
-        )
+        data: sandboxRequestBody
       };
 
       try {
@@ -1398,8 +1413,12 @@ router.post('/status', protect, async (req, res) => {
           verificationDetails: {
             apiResponse: response.data,
             source: 'sandbox_api',
-            verificationDate: new Date()
-            },
+            verificationDate: new Date(),
+            sandboxRequest: {
+              consent: sandboxRequestBody.consent,
+              reason: sandboxRequestBody.reason
+            }
+          },
           processedAt: new Date()
         });
 
@@ -1421,7 +1440,9 @@ router.post('/status', protect, async (req, res) => {
             status: 'status_checked',
             apiResponse: response.data,
             processedAt: tempRecord.processedAt,
-            source: 'sandbox_api'
+            source: 'sandbox_api',
+            consent: sandboxRequestBody.consent,
+            reason: sandboxRequestBody.reason
           }
         });
 
