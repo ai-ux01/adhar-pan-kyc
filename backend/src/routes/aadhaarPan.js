@@ -25,6 +25,23 @@ function normalizedPanAadhaarConsentReason(consent, reason) {
   return { consent: consentNorm, reason: reasonNorm };
 }
 
+/** Same interpretation as checkAadhaarPANStatusWithSandbox (must match schema status enum). */
+function linkedStatusFromSandboxPanAadhaarResponse(sandboxPayload) {
+  if (!sandboxPayload || typeof sandboxPayload !== 'object') {
+    return 'not-linked';
+  }
+  const inner =
+    sandboxPayload.data && typeof sandboxPayload.data === 'object'
+      ? sandboxPayload.data
+      : sandboxPayload;
+  const seeding = String(inner.aadhaar_seeding_status ?? '').toLowerCase();
+  const st = String(inner.status ?? '').toLowerCase();
+  if (seeding === 'y' || st === 'valid') {
+    return 'linked';
+  }
+  return 'not-linked';
+}
+
 /** Sandbox pan-aadhaar/status JSON body (field order matches API examples). */
 function buildPanAadhaarStatusRequestBody(aadhaarNumber, panNumber, consent, reason) {
   const { consent: consentNorm, reason: reasonNorm } =
@@ -1402,6 +1419,8 @@ router.post('/status', protect, async (req, res) => {
           data: response.data
         });
 
+        const recordStatus = linkedStatusFromSandboxPanAadhaarResponse(response.data);
+
         // Create a temporary record for logging
         const tempRecord = new AadhaarPan({
           userId: req.user.id,
@@ -1409,7 +1428,7 @@ router.post('/status', protect, async (req, res) => {
           aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
           panNumber: panNumber.toUpperCase(),
           name: 'Status Check',
-          status: 'status_checked',
+          status: recordStatus,
           verificationDetails: {
             apiResponse: response.data,
             source: 'sandbox_api',
@@ -1428,7 +1447,7 @@ router.post('/status', protect, async (req, res) => {
         await logAadhaarPanEvent('status_check_completed', req.user.id, {
           aadhaarNumber: tempRecord.aadhaarNumber,
           panNumber: tempRecord.panNumber,
-          status: 'status_checked'
+          status: recordStatus
         }, req);
 
         res.json({
@@ -1437,7 +1456,7 @@ router.post('/status', protect, async (req, res) => {
           data: {
             aadhaarNumber: tempRecord.aadhaarNumber,
             panNumber: tempRecord.panNumber,
-            status: 'status_checked',
+            status: recordStatus,
             apiResponse: response.data,
             processedAt: tempRecord.processedAt,
             source: 'sandbox_api',
