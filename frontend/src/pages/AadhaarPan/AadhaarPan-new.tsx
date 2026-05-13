@@ -243,10 +243,7 @@ const AadhaarPan: React.FC = () => {
       const normalized = {
         ...data,
         name: singleVerificationForm.name.trim(),
-        status: linkStatus,
-        verificationDetails: data.apiResponse
-          ? { apiResponse: data.apiResponse, source: data.source }
-          : undefined
+        status: linkStatus
       };
       setSingleVerificationResult(normalized);
 
@@ -268,11 +265,7 @@ const AadhaarPan: React.FC = () => {
       if (payload && typeof payload === 'object' && payload.status === 'error') {
         setSingleVerificationResult({
           ...payload,
-          name: singleVerificationForm.name.trim(),
-          verificationDetails: {
-            error: errBody.error || errBody.message,
-            source: payload.source
-          }
+          name: singleVerificationForm.name.trim()
         });
       }
       showToast({
@@ -452,15 +445,6 @@ const AadhaarPan: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  
-                  {singleVerificationResult.verificationDetails && (
-                    <div>
-                      <span className="font-medium text-gray-700">Details:</span>
-                      <pre className="mt-1 text-sm text-gray-600 bg-white p-3 rounded border overflow-auto">
-                        {JSON.stringify(singleVerificationResult.verificationDetails, null, 2)}
-                      </pre>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
