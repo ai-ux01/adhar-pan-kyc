@@ -10,6 +10,7 @@ const AadhaarPan = require('../models/AadhaarPan');
 const { logAadhaarPanEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const axios = require('axios');
+const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 
 const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
 
@@ -305,23 +306,6 @@ router.get('/batch/:batchId', protect, async (req, res) => {
     });
   }
 });
-
-/** Match upload header to one of the allowed aliases (exact key, then case-insensitive). */
-function resolveUploadedColumnKey(firstRow, possibleNames) {
-  if (!firstRow || typeof firstRow !== 'object') return null;
-  const keys = Object.keys(firstRow);
-  for (const possibleName of possibleNames) {
-    if (Object.prototype.hasOwnProperty.call(firstRow, possibleName)) {
-      return possibleName;
-    }
-  }
-  const lowerToActual = new Map(keys.map((k) => [k.toLowerCase(), k]));
-  for (const possibleName of possibleNames) {
-    const hit = lowerToActual.get(String(possibleName).toLowerCase());
-    if (hit) return hit;
-  }
-  return null;
-}
 
 // Download a valid sample .xlsx for upload (client-side fake XML was not parseable by XLSX.readFile)
 router.get('/sample-template', protect, async (req, res) => {

@@ -205,6 +205,69 @@ interface DynamicFieldKey {
   required?: boolean;
 }
 
+/** One exported column per dynamic field (tabular export). */
+interface DynamicExportColumn {
+  header: string;
+  matchLabels: string[];
+}
+
+function collectDynamicLabelsFromRows(rows: VerificationRecord[]): string[] {
+  const labels = new Set<string>();
+  rows.forEach((record) => {
+    (record.dynamicFields || []).forEach((field) => {
+      if (field.label) labels.add(field.label);
+    });
+  });
+  return Array.from(labels).sort();
+}
+
+function buildDynamicExportColumns(
+  rows: VerificationRecord[],
+  apiKeys: DynamicFieldKey[]
+): DynamicExportColumn[] {
+  if (apiKeys.length > 0) {
+    return apiKeys.map((k) => ({
+      header: String(k.fieldLabel || k.fieldName || 'Field').trim() || 'Field',
+      matchLabels: [k.fieldLabel, k.fieldName].filter(Boolean) as string[]
+    }));
+  }
+  return collectDynamicLabelsFromRows(rows).map((label) => ({
+    header: label,
+    matchLabels: [label]
+  }));
+}
+
+/** Disambiguate duplicate labels in CSV/Excel header row. */
+function uniqueExportHeaders(columns: DynamicExportColumn[]): string[] {
+  const count = new Map<string, number>();
+  return columns.map((c) => {
+    const base = c.header;
+    const n = (count.get(base) || 0) + 1;
+    count.set(base, n);
+    return n === 1 ? base : `${base} (${n})`;
+  });
+}
+
+function valueForDynamicExportColumn(
+  r: VerificationRecord,
+  matchLabels: string[]
+): string {
+  const fields = r.dynamicFields || [];
+  for (const lab of matchLabels) {
+    const hit = fields.find((f) => f.label === lab);
+    if (hit != null) return String(hit.value ?? '');
+  }
+  return '';
+}
+
+function jsonKeyForDynamicColumn(header: string, index: number): string {
+  const raw = header
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_]/g, '');
+  return `dynamic_${raw || 'field'}_${index}`;
+}
+
 const AadhaarVerificationRecords: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -350,9 +413,14 @@ const AadhaarVerificationRecords: React.FC = () => {
         toast.error('No records to export');
         return;
       }
-      const dyn = (r: VerificationRecord) =>
-        (r.dynamicFields || []).map((f) => `${f.label}: ${f.value}`).join(' | ');
-      const headers = [
+      let keysForExport = dynamicFieldKeysFromApi;
+      if (keysForExport.length === 0) {
+        keysForExport = await fetchDynamicFieldKeys();
+      }
+      const dynCols = buildDynamicExportColumns(rows, keysForExport);
+      const dynamicHeaders = uniqueExportHeaders(dynCols);
+
+      const headersPrefix = [
         'Batch ID',
         'Aadhaar Number',
         'Name',
@@ -363,51 +431,68 @@ const AadhaarVerificationRecords: React.FC = () => {
         'District',
         'State',
         'PIN Code',
-        'Care Of',
-        'Dynamic Fields',
+        'Care Of'
+      ];
+      const headersSuffix = [
         'Created At',
         'Processed At',
         'Processing Time (ms)',
         'Error Message'
       ];
-      const matrix: string[][] = rows.map((r) => [
-        r.batchId,
-        r.aadhaarNumber,
-        r.name,
-        r.dateOfBirth || '',
-        r.gender || '',
-        r.status,
-        r.address || '',
-        r.district || '',
-        r.state || '',
-        r.pinCode || '',
-        r.careOf || '',
-        dyn(r),
-        new Date(r.createdAt).toLocaleString(),
-        r.processedAt ? new Date(r.processedAt).toLocaleString() : '',
-        String(r.processingTime ?? ''),
-        r.errorMessage || ''
-      ]);
-      const jsonPayload = rows.map((r) => ({
-        _id: r._id,
-        batchId: r.batchId,
-        aadhaarNumber: r.aadhaarNumber,
-        name: r.name,
-        dateOfBirth: r.dateOfBirth,
-        gender: r.gender,
-        status: r.status,
-        address: r.address,
-        district: r.district,
-        state: r.state,
-        pinCode: r.pinCode,
-        careOf: r.careOf,
-        dynamicFields: r.dynamicFields,
-        processingTime: r.processingTime,
-        errorMessage: r.errorMessage,
-        createdAt: r.createdAt,
-        processedAt: r.processedAt,
-        hasSelfie: !!(r.selfie && (r.selfie.filename || r.selfie.path))
-      }));
+      const headers = [...headersPrefix, ...dynamicHeaders, ...headersSuffix];
+
+      const matrix: string[][] = rows.map((r) => {
+        const prefix = [
+          r.batchId,
+          r.aadhaarNumber,
+          r.name,
+          r.dateOfBirth || '',
+          r.gender || '',
+          r.status,
+          r.address || '',
+          r.district || '',
+          r.state || '',
+          r.pinCode || '',
+          r.careOf || ''
+        ];
+        const dynamicCells = dynCols.map((col) =>
+          valueForDynamicExportColumn(r, col.matchLabels)
+        );
+        const suffix = [
+          new Date(r.createdAt).toLocaleString(),
+          r.processedAt ? new Date(r.processedAt).toLocaleString() : '',
+          String(r.processingTime ?? ''),
+          r.errorMessage || ''
+        ];
+        return [...prefix, ...dynamicCells, ...suffix];
+      });
+
+      const jsonPayload = rows.map((r) => {
+        const base: Record<string, unknown> = {
+          _id: r._id,
+          batchId: r.batchId,
+          aadhaarNumber: r.aadhaarNumber,
+          name: r.name,
+          dateOfBirth: r.dateOfBirth,
+          gender: r.gender,
+          status: r.status,
+          address: r.address,
+          district: r.district,
+          state: r.state,
+          pinCode: r.pinCode,
+          careOf: r.careOf,
+          processingTime: r.processingTime,
+          errorMessage: r.errorMessage,
+          createdAt: r.createdAt,
+          processedAt: r.processedAt,
+          hasSelfie: !!(r.selfie && (r.selfie.filename || r.selfie.path))
+        };
+        dynamicHeaders.forEach((h, i) => {
+          const key = jsonKeyForDynamicColumn(h, i);
+          base[key] = valueForDynamicExportColumn(r, dynCols[i].matchLabels);
+        });
+        return base;
+      });
       downloadReport('aadhaar-verification-records', format, headers, matrix, 'Aadhaar Verif', jsonPayload);
       const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
       toast.success(`${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`);

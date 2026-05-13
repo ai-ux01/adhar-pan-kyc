@@ -10,6 +10,7 @@ const PanKyc = require('../models/PanKyc');
 const { logPanKycEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const { verifyPAN } = require('../services/panVerificationService');
+const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 
 // Helper function to convert Excel serial number to date string
 function excelSerialToDate(serial) {
@@ -263,6 +264,37 @@ router.get('/batch/:batchId', protect, async (req, res) => {
   }
 });
 
+// Download a valid sample .xlsx for upload (SpreadsheetML blob is not real OOXML)
+router.get('/sample-template', protect, async (req, res) => {
+  try {
+    const rows = [
+      ['panNumber', 'name', 'dateOfBirth'],
+      ['ABCDE1234F', 'John Doe', '15/03/1990'],
+      ['FGHIJ5678K', 'Jane Smith', '22/11/1985'],
+      ['LMNOP9012Q', 'Bob Johnson', '08/07/1992']
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="sample_pan_kyc.xlsx"'
+    );
+    res.send(Buffer.from(buf));
+  } catch (error) {
+    logger.error('Error generating PAN KYC sample template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate sample template'
+    });
+  }
+});
+
 // Upload PAN KYC file
 router.post('/upload', protect, upload.single('file'), async (req, res) => {
   try {
@@ -297,28 +329,26 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     
     const missingColumns = [];
     const columnMap = {};
-    
-    requiredColumns.forEach(requiredCol => {
+
+    requiredColumns.forEach((requiredCol) => {
       const possibleNames = columnMapping[requiredCol];
-      let found = false;
-      
-      for (const possibleName of possibleNames) {
-        if (firstRow.hasOwnProperty(possibleName)) {
-          columnMap[requiredCol] = possibleName;
-          found = true;
-          break;
-        }
-      }
-      
-      if (!found) {
+      const matchedKey = resolveUploadedColumnKey(firstRow, possibleNames);
+      if (matchedKey) {
+        columnMap[requiredCol] = matchedKey;
+      } else {
         missingColumns.push(requiredCol);
       }
     });
-    
+
     if (missingColumns.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Missing required columns: ${missingColumns.join(', ')}`
+        message: `Missing required columns: ${missingColumns.join(', ')}`,
+        debug: {
+          foundColumns: Object.keys(firstRow),
+          requiredColumns,
+          columnMapping
+        }
       });
     }
 

@@ -1,6 +1,7 @@
 /**
  * Client-side report export: CSV (UTF-8 with BOM), Excel-compatible XML (.xls), JSON.
  * Excel uses SpreadsheetML (Excel 2003 XML); opens in Excel and LibreOffice without extra deps.
+ * Use filename extension .xls only — do not save this XML as .xlsx (OOXML is binary/ZIP; parsers will fail).
  */
 
 export type ReportExportFormat = 'csv' | 'xls' | 'json';
