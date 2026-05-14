@@ -59,6 +59,22 @@ function filterDynamicFieldsArray(incoming, defs) {
     .filter((f) => f.label !== '');
 }
 
+/** Legacy rows may omit qrCode.isActive; only explicit false is inactive. */
+async function findUserByQrCodeParam(qrCodeParam) {
+  if (qrCodeParam == null || String(qrCodeParam).trim() === '') {
+    return null;
+  }
+  const code = String(qrCodeParam).trim().toLowerCase();
+  const user = await User.findOne({ 'qrCode.code': code });
+  if (!user || !user.qrCode?.code) {
+    return null;
+  }
+  if (user.qrCode.isActive === false) {
+    return null;
+  }
+  return user;
+}
+
 // Configure multer for selfie uploads (memory storage - save to MongoDB, not disk)
 const selfieUpload = multer({
   storage: multer.memoryStorage(),
@@ -774,7 +790,7 @@ router.post('/verify-qr/:qrCode', async (req, res) => {
     const { aadhaarNumber, location = '', dynamicFields = [], customFields = {}, consentAccepted } = req.body;
 
     // Find user by QR code
-    const user = await User.findOne({ 'qrCode.code': qrCode, 'qrCode.isActive': true });
+    const user = await findUserByQrCodeParam(qrCode);
     
     if (!user) {
       return res.status(404).json({
@@ -858,7 +874,7 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
     const { aadhaarNumber, otp, transactionId, dynamicFields = [], customFields = {} } = req.body;
 
     // Find user by QR code
-    const user = await User.findOne({ 'qrCode.code': qrCode, 'qrCode.isActive': true });
+    const user = await findUserByQrCodeParam(qrCode);
     
     if (!user) {
       return res.status(404).json({

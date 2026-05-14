@@ -2422,9 +2422,9 @@ router.get('/users/:id/qr-code', protect, authorize('admin'), async (req, res) =
 // Get user by QR code (public endpoint for verification)
 router.get('/qr/:code', async (req, res) => {
   try {
-    const user = await User.findOne({ 'qrCode.code': req.params.code, 'qrCode.isActive': true });
+    const user = await User.findOne({ 'qrCode.code': String(req.params.code).trim().toLowerCase() });
     
-    if (!user) {
+    if (!user || !user.qrCode?.code || user.qrCode.isActive === false) {
       return res.status(404).json({
         success: false,
         message: 'Invalid or inactive QR code'
