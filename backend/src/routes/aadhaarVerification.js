@@ -472,7 +472,10 @@ router.post('/verify-otp', protect, async (req, res) => {
       transactionIdLength: transactionId ? transactionId.length : 'null'
     });
     
-    const otpResult = await verifyAadhaarOTP(transactionId, otp);
+    const otpResult = await verifyAadhaarOTP(
+      transactionId != null ? String(transactionId).trim() : '',
+      otp
+    );
 
     const defs = await getVerificationFieldDefinitionsForUser(req.user.id);
     const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
@@ -915,11 +918,18 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
       });
     }
 
-    // Verify OTP using Sandbox API
+    // Verify OTP using Sandbox API (same response shape as POST /verify-otp)
     const { verifyAadhaarOTP } = require('../services/aadhaarVerificationService');
     const startTime = Date.now();
-    const verificationResult = await verifyAadhaarOTP(transactionId, otp);
+    const referenceId =
+      transactionId != null && String(transactionId).trim() !== ''
+        ? String(transactionId).trim()
+        : '';
+    const verificationResult = await verifyAadhaarOTP(referenceId, otp);
     const processingTime = Date.now() - startTime;
+
+    const apiData = verificationResult.data?.data || verificationResult.data || {};
+    const addressData = apiData.address || {};
 
     const defs = await getVerificationFieldDefinitionsForUser(user._id);
     const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
@@ -928,20 +938,25 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
       allowed.has(String(k).trim())
     );
 
+    const isVerified = apiData.status === 'VALID';
+
     // Create verification record
     const verificationRecord = new AadhaarVerification({
       userId: user._id,
       batchId: `qr-${Date.now()}`,
       aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-      name: verificationResult.data.name || '',
-      dateOfBirth: verificationResult.data.date_of_birth || '',
-      gender: verificationResult.data.gender || '',
-      address: verificationResult.data.full_address || '',
-      pinCode: verificationResult.data.address?.pincode?.toString() || '',
-      state: verificationResult.data.address?.state || '',
-      district: verificationResult.data.address?.district || '',
-      careOf: verificationResult.data.care_of || '',
-      photo: verificationResult.data.photo || '',
+      name: apiData.name || '',
+      dateOfBirth: apiData.date_of_birth || apiData.dateOfBirth || '',
+      gender: apiData.gender || '',
+      address: apiData.full_address || addressData.full_address || '',
+      pinCode:
+        (addressData.pinCode != null && String(addressData.pinCode)) ||
+        (addressData.pincode != null && String(addressData.pincode)) ||
+        '',
+      state: addressData.state || apiData.state || '',
+      district: addressData.district || apiData.district || '',
+      careOf: apiData.care_of || '',
+      photo: apiData.photo || '',
       dynamicFields: [
         ...safeDynamicFields,
         ...safeCustomPairs.map(([key, value]) => ({
@@ -949,18 +964,18 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
           value: value != null ? String(value) : ''
         }))
       ],
-      status: verificationResult.status === 'VALID' ? 'verified' : 'invalid',
+      status: isVerified ? 'verified' : 'invalid',
       verificationDetails: {
         apiResponse: verificationResult,
-        verifiedName: verificationResult.data.name || '',
-        verifiedDob: verificationResult.data.date_of_birth || '',
-        verifiedGender: verificationResult.data.gender || '',
-        verifiedAddress: verificationResult.data.full_address || '',
+        verifiedName: apiData.name || '',
+        verifiedDob: apiData.date_of_birth || apiData.dateOfBirth || '',
+        verifiedGender: apiData.gender || '',
+        verifiedAddress: apiData.full_address || addressData.full_address || '',
         verificationDate: new Date(),
         confidence: 95,
         dataMatch: true,
         source: verificationResult.source || 'sandbox_api',
-        transactionId: transactionId.toString()
+        transactionId: referenceId
       },
       processingTime: processingTime,
       isProcessed: true,
@@ -976,17 +991,17 @@ router.post('/verify-otp-qr/:qrCode', async (req, res) => {
       source: 'qr_code'
     }, req);
 
-    const isVerified = verificationRecord.status === 'verified';
+    const isVerifiedResponse = verificationRecord.status === 'verified';
     res.json({
-      success: isVerified,
-      message: isVerified ? 'Verification completed successfully' : 'Invalid OTP. Verification rejected.',
+      success: isVerifiedResponse,
+      message: isVerifiedResponse ? 'Verification completed successfully' : 'Invalid OTP. Verification rejected.',
       data: {
         recordId: verificationRecord._id,
         aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-        name: verificationResult.data?.name || '',
-        dateOfBirth: verificationResult.data?.date_of_birth || '',
-        gender: verificationResult.data?.gender || '',
-        address: verificationResult.data?.full_address || '',
+        name: apiData.name || '',
+        dateOfBirth: apiData.date_of_birth || apiData.dateOfBirth || '',
+        gender: apiData.gender || '',
+        address: apiData.full_address || addressData.full_address || '',
         status: verificationRecord.status,
         processingTime: processingTime,
         hasSelfieAccess: user.moduleAccess && user.moduleAccess.includes('selfie-upload')

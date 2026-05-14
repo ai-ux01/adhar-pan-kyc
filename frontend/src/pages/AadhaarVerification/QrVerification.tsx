@@ -264,7 +264,9 @@ const QrVerification: React.FC = () => {
 
       if (data.success) {
         if (data.data.otpSent) {
-          setTransactionId(data.data.transactionId);
+          setTransactionId(
+            data.data.transactionId != null ? String(data.data.transactionId).trim() : ''
+          );
           setCurrentStep({ step: 'otp-verification', data: data.data });
           setResendCooldown(30);
           setCanResend(false);

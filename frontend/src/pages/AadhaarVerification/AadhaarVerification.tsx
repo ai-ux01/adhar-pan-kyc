@@ -489,7 +489,9 @@ const AadhaarVerification: React.FC = () => {
 
       if (data.success) {
         if (data.data.otpSent) {
-          setTransactionId(data.data.transactionId);
+          setTransactionId(
+            data.data.transactionId != null ? String(data.data.transactionId).trim() : ''
+          );
           setCurrentStep({ step: 'otp-verification', data: data.data });
           setResendCooldown(30); // Start 30-second countdown
           setCanResend(false);
@@ -546,7 +548,9 @@ const AadhaarVerification: React.FC = () => {
       const data = await response.json();
 
       if (data.success) {
-        setTransactionId(data.data.transactionId);
+        setTransactionId(
+          data.data.transactionId != null ? String(data.data.transactionId).trim() : ''
+        );
         setResendCooldown(30); // Reset countdown
         setCanResend(false);
         toast.success('OTP resent successfully!');

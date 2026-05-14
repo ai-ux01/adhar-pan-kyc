@@ -177,6 +177,64 @@ async function sendAadhaarOTP(aadhaarNumber, reason = 'For KYC', retryCount = 0)
   }
 }
 
+/**
+ * Sandbox OTP send responses sometimes include both a numeric portal id
+ * (e.g. transaction_id) and a string reference_id required by /otp/verify.
+ * Prefer UUID / long hex / opaque string refs over short all-numeric ids.
+ */
+function extractOtpReferenceIdFromSendResponse(otpResponse) {
+  if (!otpResponse || typeof otpResponse !== 'object') return null;
+
+  const data = otpResponse.data;
+  const inner = data && typeof data === 'object' ? data.data : null;
+
+  const rawCandidates = [
+    data?.reference_id,
+    data?.referenceId,
+    otpResponse.reference_id,
+    otpResponse.referenceId,
+    inner?.reference_id,
+    inner?.referenceId,
+    data?.txn_id,
+    data?.transaction_id,
+    inner?.txn_id,
+    inner?.transaction_id,
+    otpResponse.txn_id,
+    otpResponse.transaction_id,
+    data?.id,
+    inner?.id,
+    otpResponse.id
+  ];
+
+  const toStr = (v) => {
+    if (v == null || v === '') return null;
+    const s = String(v).trim();
+    return s || null;
+  };
+
+  const isPreferredOtpReferenceString = (s) => {
+    if (!s) return false;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+    if (/^[0-9a-f]{32,128}$/i.test(s)) return true;
+    if (/^\d{12}$/.test(s)) return false;
+    if (/^\d+$/.test(s) && s.length <= 12) return false;
+    if (s.length >= 16) return true;
+    return false;
+  };
+
+  for (const c of rawCandidates) {
+    const s = toStr(c);
+    if (s && isPreferredOtpReferenceString(s)) return s;
+  }
+
+  for (const c of rawCandidates) {
+    const s = toStr(c);
+    if (s) return s;
+  }
+
+  return null;
+}
+
 // Verify OTP for Aadhaar verification
 async function verifyAadhaarOTP(referenceId, otp) {
   try {
@@ -241,10 +299,8 @@ async function verifyAadhaar(aadhaarNumber, location, dynamicFields = [], reason
     // Send OTP first
     const otpResponse = await sendAadhaarOTP(aadhaarNumber, reason);
 
-    // Extract the correct reference ID
-    // The reference_id might be in the data object or at root level
-    const extractedReferenceId = otpResponse.data?.reference_id || otpResponse.reference_id || otpResponse.transaction_id || otpResponse.txn_id;
-    
+    const extractedReferenceId = extractOtpReferenceIdFromSendResponse(otpResponse);
+
     logger.info("Extracting reference ID from OTP response:", {
       data_reference_id: otpResponse.data?.reference_id,
       root_reference_id: otpResponse.reference_id,
