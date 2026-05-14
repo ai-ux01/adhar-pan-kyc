@@ -178,9 +178,10 @@ async function sendAadhaarOTP(aadhaarNumber, reason = 'For KYC', retryCount = 0)
 }
 
 /**
- * Sandbox OTP send responses sometimes include both a numeric portal id
- * (e.g. transaction_id) and a string reference_id required by /otp/verify.
- * Prefer UUID / long hex / opaque string refs over short all-numeric ids.
+ * Generate OTP returns a root `transaction_id` (UUID) for tracing and
+ * `data.reference_id` (integer in Sandbox docs) for /otp/verify.
+ * Verify must receive `reference_id` from the OTP response body, not the root UUID.
+ * @see https://developer.sandbox.co.in/api-reference/kyc/aadhaar/endpoints/generate_otp
  */
 function extractOtpReferenceIdFromSendResponse(otpResponse) {
   if (!otpResponse || typeof otpResponse !== 'object') return null;
@@ -188,46 +189,36 @@ function extractOtpReferenceIdFromSendResponse(otpResponse) {
   const data = otpResponse.data;
   const inner = data && typeof data === 'object' ? data.data : null;
 
-  const rawCandidates = [
-    data?.reference_id,
-    data?.referenceId,
-    otpResponse.reference_id,
-    otpResponse.referenceId,
-    inner?.reference_id,
-    inner?.referenceId,
-    data?.txn_id,
-    data?.transaction_id,
-    inner?.txn_id,
-    inner?.transaction_id,
-    otpResponse.txn_id,
-    otpResponse.transaction_id,
-    data?.id,
-    inner?.id,
-    otpResponse.id
-  ];
-
   const toStr = (v) => {
     if (v == null || v === '') return null;
     const s = String(v).trim();
     return s || null;
   };
 
-  const isPreferredOtpReferenceString = (s) => {
-    if (!s) return false;
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
-    if (/^[0-9a-f]{32,128}$/i.test(s)) return true;
-    if (/^\d{12}$/.test(s)) return false;
-    if (/^\d+$/.test(s) && s.length <= 12) return false;
-    if (s.length >= 16) return true;
-    return false;
-  };
+  const explicitReference = [
+    data?.reference_id,
+    data?.referenceId,
+    inner?.reference_id,
+    inner?.referenceId,
+    otpResponse.reference_id,
+    otpResponse.referenceId
+  ];
 
-  for (const c of rawCandidates) {
+  for (const c of explicitReference) {
     const s = toStr(c);
-    if (s && isPreferredOtpReferenceString(s)) return s;
+    if (s) return s;
   }
 
-  for (const c of rawCandidates) {
+  const fallbacks = [
+    data?.txn_id,
+    inner?.txn_id,
+    otpResponse.txn_id,
+    data?.transaction_id,
+    inner?.transaction_id,
+    otpResponse.transaction_id
+  ];
+
+  for (const c of fallbacks) {
     const s = toStr(c);
     if (s) return s;
   }
@@ -304,7 +295,7 @@ async function verifyAadhaar(aadhaarNumber, location, dynamicFields = [], reason
     logger.info("Extracting reference ID from OTP response:", {
       data_reference_id: otpResponse.data?.reference_id,
       root_reference_id: otpResponse.reference_id,
-      transaction_id: otpResponse.transaction_id,
+      root_transaction_id: otpResponse.transaction_id,
       txn_id: otpResponse.txn_id,
       extractedReferenceId: extractedReferenceId,
       extractedType: typeof extractedReferenceId,
