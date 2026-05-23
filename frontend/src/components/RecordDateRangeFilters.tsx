@@ -55,14 +55,9 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
   };
 
   return (
-    <div
-      className={`grid w-full gap-3 items-end ${
-        showClear
-          ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]'
-          : 'grid-cols-2 sm:grid-cols-3'
-      } ${className}`}
-    >
-      <div className="min-w-0">
+    <div className={`flex flex-col gap-3 w-full ${className}`}>
+      {/* Row 1: quick period */}
+      <div className="w-full sm:max-w-[11rem]">
         <label className="block text-xs font-medium text-gray-600 mb-1">Period</label>
         <select
           value={dateFilter}
@@ -77,37 +72,45 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
           <option value="month">This month</option>
         </select>
       </div>
-      <div className="min-w-0">
-        <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => handleFromChange(e.target.value)}
-          max={dateTo || undefined}
-          className={inputClass}
-        />
-      </div>
-      <div className="min-w-0">
-        <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => handleToChange(e.target.value)}
-          min={dateFrom || undefined}
-          className={inputClass}
-        />
-      </div>
-      {showClear && (
-        <div className="col-span-2 sm:col-span-1 min-w-0">
-          <button
-            type="button"
-            onClick={onClear}
-            className="w-full whitespace-nowrap px-3 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            Clear dates
-          </button>
+
+      {/* Row 2: custom date range */}
+      <div
+        className={`grid w-full gap-3 items-end ${
+          showClear ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'
+        }`}
+      >
+        <div className="min-w-0">
+          <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => handleFromChange(e.target.value)}
+            max={dateTo || undefined}
+            className={inputClass}
+          />
         </div>
-      )}
+        <div className="min-w-0">
+          <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => handleToChange(e.target.value)}
+            min={dateFrom || undefined}
+            className={inputClass}
+          />
+        </div>
+        {showClear && (
+          <div className="min-w-0 col-span-2 sm:col-span-1">
+            <button
+              type="button"
+              onClick={onClear}
+              className="w-full whitespace-nowrap px-3 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Clear dates
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
