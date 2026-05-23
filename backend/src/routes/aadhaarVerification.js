@@ -12,6 +12,7 @@ const logger = require('../utils/logger');
 const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadhaarVerificationService');
 const { getAllowedOrigin } = require('../utils/corsHelper');
 const CustomField = require('../models/CustomField');
+const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
 
 /** Custom fields applicable to Aadhaar verification for this viewer (admin = all; others = enabledCustomFields only). */
 async function getVerificationFieldDefinitionsForUser(userId, { forKeysEndpoint = false } = {}) {
@@ -138,6 +139,7 @@ router.get('/records', protect, async (req, res) => {
     const status = req.query.status || '';
     const dateFrom = req.query.dateFrom || '';
     const dateTo = req.query.dateTo || '';
+    const dateFilter = req.query.dateFilter || 'all';
     const sortBy = req.query.sortBy || 'createdAt';
     const sortOrder = req.query.sortOrder || 'desc';
 
@@ -179,16 +181,16 @@ router.get('/records', protect, async (req, res) => {
       };
     }
 
-    // Add date range filter
-    if (dateFrom || dateTo) {
-      searchQuery.dateOfBirth = {};
-      if (dateFrom) {
-        searchQuery.dateOfBirth.$gte = new Date(dateFrom);
-      }
-      if (dateTo) {
-        searchQuery.dateOfBirth.$lte = new Date(dateTo);
-      }
-    }
+    applyCreatedAtDateFilter(searchQuery, { dateFilter, dateFrom, dateTo });
+
+    const allowedSortFields = new Set([
+      'createdAt',
+      'processedAt',
+      'name',
+      'status',
+      'aadhaarNumber'
+    ]);
+    const safeSortBy = allowedSortFields.has(sortBy) ? sortBy : 'createdAt';
 
     // Debug: Log the search query
     if (search) {
@@ -201,7 +203,7 @@ router.get('/records', protect, async (req, res) => {
 
     // Build sort object
     const sortObj = {};
-    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    sortObj[safeSortBy] = sortOrder === 'asc' ? 1 : -1;
 
     // Get paginated records
     const records = await AadhaarVerification.find(searchQuery)

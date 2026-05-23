@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
+import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { 
   IdentificationIcon, 
   CheckCircleIcon, 
@@ -290,6 +291,7 @@ const AadhaarVerificationRecords: React.FC = () => {
     status: '',
     dateFrom: '',
     dateTo: '',
+    dateFilter: 'all' as DateFilterPreset,
     sortBy: 'createdAt',
     sortOrder: 'desc'
   });
@@ -339,6 +341,9 @@ const AadhaarVerificationRecords: React.FC = () => {
       if (currentFilters.status) params.append('status', currentFilters.status);
       if (currentFilters.dateFrom) params.append('dateFrom', currentFilters.dateFrom);
       if (currentFilters.dateTo) params.append('dateTo', currentFilters.dateTo);
+      if (currentFilters.dateFilter && currentFilters.dateFilter !== 'all') {
+        params.append('dateFilter', currentFilters.dateFilter);
+      }
       if (currentFilters.sortBy) params.append('sortBy', currentFilters.sortBy);
       if (currentFilters.sortOrder) params.append('sortOrder', currentFilters.sortOrder);
       
@@ -391,6 +396,9 @@ const AadhaarVerificationRecords: React.FC = () => {
     if (filters.status) params.set('status', filters.status);
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters.dateFilter && filters.dateFilter !== 'all') {
+      params.set('dateFilter', filters.dateFilter);
+    }
     params.set('sortBy', filters.sortBy);
     params.set('sortOrder', filters.sortOrder);
     const { data } = await api.get<{ success: boolean; data?: VerificationRecord[]; pagination?: { totalRecords: number } }>(
@@ -521,12 +529,12 @@ const AadhaarVerificationRecords: React.FC = () => {
     switch (status) {
       case 'verified':
         return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
-      case 'failed':
+      case 'rejected':
+      case 'invalid':
+      case 'error':
         return <XCircleIcon className="w-5 h-5 text-red-500" />;
-      case 'expired':
+      case 'pending':
         return <ClockIcon className="w-5 h-5 text-yellow-500" />;
-      case 'otp_sent':
-        return <ExclamationTriangleIcon className="w-5 h-5 text-blue-500" />;
       default:
         return <ExclamationTriangleIcon className="w-5 h-5 text-gray-500" />;
     }
@@ -536,12 +544,12 @@ const AadhaarVerificationRecords: React.FC = () => {
     switch (status) {
       case 'verified':
         return 'bg-green-100 text-green-800';
-      case 'failed':
+      case 'rejected':
+      case 'invalid':
+      case 'error':
         return 'bg-red-100 text-red-800';
-      case 'expired':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'otp_sent':
-        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -551,12 +559,12 @@ const AadhaarVerificationRecords: React.FC = () => {
     switch (status) {
       case 'verified':
         return 'Verified';
-      case 'failed':
-        return 'Failed';
-      case 'expired':
-        return 'Expired';
-      case 'otp_sent':
-        return 'OTP Sent';
+      case 'rejected':
+        return 'Rejected';
+      case 'invalid':
+        return 'Invalid';
+      case 'error':
+        return 'Error';
       case 'pending':
         return 'Pending';
       default:
@@ -630,6 +638,7 @@ const AadhaarVerificationRecords: React.FC = () => {
       status: '',
       dateFrom: '',
       dateTo: '',
+      dateFilter: 'all' as DateFilterPreset,
       sortBy: 'createdAt',
       sortOrder: 'desc'
     };
@@ -922,31 +931,36 @@ const AadhaarVerificationRecords: React.FC = () => {
                   >
                     <option value="">All Status</option>
                     <option value="verified">Verified</option>
-                    <option value="failed">Failed</option>
-                    <option value="expired">Expired</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="invalid">Invalid</option>
+                    <option value="error">Error</option>
                     <option value="pending">Pending</option>
                   </select>
                 </div>
 
-                {/* Date From Filter */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Date From</label>
-                  <input
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(e) => handleFilterChange({ ...filters, dateFrom: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
-                  />
-                </div>
-
-                {/* Date To Filter */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Date To</label>
-                  <input
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(e) => handleFilterChange({ ...filters, dateTo: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
+                <div className="md:col-span-2 lg:col-span-3">
+                  <RecordDateRangeFilters
+                    accent="blue"
+                    dateFilter={filters.dateFilter}
+                    onDateFilterChange={(dateFilter) =>
+                      handleFilterChange({ ...filters, dateFilter })
+                    }
+                    dateFrom={filters.dateFrom}
+                    dateTo={filters.dateTo}
+                    onDateFromChange={(dateFrom) =>
+                      handleFilterChange({ ...filters, dateFrom, dateFilter: 'all' })
+                    }
+                    onDateToChange={(dateTo) =>
+                      handleFilterChange({ ...filters, dateTo, dateFilter: 'all' })
+                    }
+                    onClear={() =>
+                      handleFilterChange({
+                        ...filters,
+                        dateFilter: 'all',
+                        dateFrom: '',
+                        dateTo: ''
+                      })
+                    }
                   />
                 </div>
 
@@ -996,7 +1010,11 @@ const AadhaarVerificationRecords: React.FC = () => {
           )}
 
           {/* Active Filters Display */}
-          {(searchTerm || filters.status || filters.dateFrom || filters.dateTo) && (
+          {(searchTerm ||
+            filters.status ||
+            filters.dateFrom ||
+            filters.dateTo ||
+            (filters.dateFilter && filters.dateFilter !== 'all')) && (
             <div className="mt-4 flex flex-wrap gap-2 justify-center">
               {searchTerm && (
                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -1006,6 +1024,11 @@ const AadhaarVerificationRecords: React.FC = () => {
               {filters.status && (
                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   📊 Status: {filters.status}
+                </span>
+              )}
+              {filters.dateFilter && filters.dateFilter !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  📅 Period: {filters.dateFilter}
                 </span>
               )}
               {filters.dateFrom && (

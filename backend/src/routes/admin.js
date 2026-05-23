@@ -13,6 +13,7 @@ const fs = require('fs');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const { getAllowedOrigin } = require('../utils/corsHelper');
+const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
 
 // Configure multer for logo uploads
 // Use absolute path to ensure consistency
@@ -332,20 +333,31 @@ router.delete('/users/:id', protect, authorize('admin'), async (req, res) => {
 // Get audit logs (admin only)
 router.get('/audit-logs', protect, authorize('admin'), async (req, res) => {
   try {
-    const { page = 1, limit = 50, module = '', action = '', userId = '', startDate = '', endDate = '' } = req.query;
+    const {
+      page = 1,
+      limit = 50,
+      module = '',
+      action = '',
+      userId = '',
+      startDate = '',
+      endDate = '',
+      dateFrom = '',
+      dateTo = '',
+      dateFilter = 'all'
+    } = req.query;
     const skip = (page - 1) * limit;
 
     let query = {};
-    
+
     if (module) query.module = module;
     if (action) query.action = action;
     if (userId) query.userId = userId;
-    
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
+
+    applyCreatedAtDateFilter(query, {
+      dateFilter,
+      dateFrom: dateFrom || startDate,
+      dateTo: dateTo || endDate
+    });
 
     const logs = await Audit.find(query)
       .populate('userId', 'name email')

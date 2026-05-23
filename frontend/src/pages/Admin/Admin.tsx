@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import CustomFieldsManager from '../../components/CustomFieldsManager';
+import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { 
   UserGroupIcon, 
   ChartBarIcon, 
@@ -162,6 +163,9 @@ const Admin: React.FC = () => {
   const [userArchivalModalOpen, setUserArchivalModalOpen] = useState(false);
   const [auditFilterAction, setAuditFilterAction] = useState('all');
   const [auditFilterModule, setAuditFilterModule] = useState('all');
+  const [auditDateFilter, setAuditDateFilter] = useState<DateFilterPreset>('all');
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
   const [auditPage, setAuditPage] = useState(1);
   const [auditPageSize] = useState(10);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -278,8 +282,19 @@ const Admin: React.FC = () => {
   const fetchAuditLogs = async () => {
     try {
       setAuditLoading(true);
-      const response = await api.get('/admin/audit-logs');
+      const params = new URLSearchParams();
+      params.set('limit', '500');
+      params.set('page', '1');
+      if (auditFilterAction !== 'all') params.set('action', auditFilterAction);
+      if (auditFilterModule !== 'all') params.set('module', auditFilterModule);
+      if (auditDateFrom) params.set('dateFrom', auditDateFrom);
+      if (auditDateTo) params.set('dateTo', auditDateTo);
+      if (auditDateFilter !== 'all' && !auditDateFrom && !auditDateTo) {
+        params.set('dateFilter', auditDateFilter);
+      }
+      const response = await api.get(`/admin/audit-logs?${params.toString()}`);
       setAuditLogs(response.data.data.logs);
+      setAuditPage(1);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
       showToast({
@@ -296,16 +311,22 @@ const Admin: React.FC = () => {
     fetchAuditLogs();
   };
 
-  const filteredAuditLogs = auditLogs.filter(log => {
-    const matchesSearch = log.userId?.name?.toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
-                         log.action.toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
-                         log.module.toLowerCase().includes(auditSearchTerm.toLowerCase()) ||
-                         log.resource.toLowerCase().includes(auditSearchTerm.toLowerCase());
-    const matchesAction = auditFilterAction === 'all' || log.action === auditFilterAction;
-    const matchesModule = auditFilterModule === 'all' || log.module === auditFilterModule;
-    
-    return matchesSearch && matchesAction && matchesModule;
+  const filteredAuditLogs = auditLogs.filter((log) => {
+    if (!auditSearchTerm.trim()) return true;
+    const term = auditSearchTerm.toLowerCase();
+    return (
+      log.userId?.name?.toLowerCase().includes(term) ||
+      log.action.toLowerCase().includes(term) ||
+      log.module.toLowerCase().includes(term) ||
+      log.resource.toLowerCase().includes(term)
+    );
   });
+
+  useEffect(() => {
+    if (user?.role !== 'admin' || activeTab !== 'audit') return;
+    fetchAuditLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auditFilterAction, auditFilterModule, auditDateFilter, auditDateFrom, auditDateTo, activeTab]);
 
   const paginatedAuditLogs = filteredAuditLogs.slice(
     (auditPage - 1) * auditPageSize,
@@ -1638,6 +1659,23 @@ const Admin: React.FC = () => {
                   <option value="admin">Admin</option>
                 </select>
               </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <RecordDateRangeFilters
+                accent="emerald"
+                dateFilter={auditDateFilter}
+                onDateFilterChange={setAuditDateFilter}
+                dateFrom={auditDateFrom}
+                dateTo={auditDateTo}
+                onDateFromChange={setAuditDateFrom}
+                onDateToChange={setAuditDateTo}
+                onClear={() => {
+                  setAuditDateFilter('all');
+                  setAuditDateFrom('');
+                  setAuditDateTo('');
+                }}
+              />
             </div>
 
             {/* Results Summary */}

@@ -11,6 +11,7 @@ const { logPanKycEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const { verifyPAN } = require('../services/panVerificationService');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
+const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
 
 // Helper function to convert Excel serial number to date string
 function excelSerialToDate(serial) {
@@ -115,26 +116,15 @@ router.get('/records', protect, async (req, res) => {
       : Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const statusFilter = req.query.status || 'all';
     const dateFilter = req.query.dateFilter || 'all';
+    const dateFrom = req.query.dateFrom || '';
+    const dateTo = req.query.dateTo || '';
     const skip = isExport ? 0 : (page - 1) * limit;
 
     const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
     if (statusFilter !== 'all') {
       match.status = statusFilter;
     }
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      let from = new Date(now);
-      from.setHours(0, 0, 0, 0);
-      if (dateFilter === 'today') {
-        match.createdAt = { $gte: from, $lte: now };
-      } else if (dateFilter === 'week') {
-        from.setDate(from.getDate() - 7);
-        match.createdAt = { $gte: from, $lte: now };
-      } else if (dateFilter === 'month') {
-        from.setMonth(from.getMonth() - 1);
-        match.createdAt = { $gte: from, $lte: now };
-      }
-    }
+    applyCreatedAtDateFilter(match, { dateFilter, dateFrom, dateTo });
 
     const [facetResult] = await PanKyc.aggregate([
       { $match: match },

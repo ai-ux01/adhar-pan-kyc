@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
+import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { 
   MagnifyingGlassIcon,
   CheckCircleIcon,
@@ -92,7 +93,9 @@ const PanKycRecords: React.FC = () => {
   const recordsPerPage = 20;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterPreset>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchRecords = async (page: number = pagination.currentPage) => {
     if (!isAuthenticated || !user) {
@@ -107,6 +110,8 @@ const PanKycRecords: React.FC = () => {
       params.set('limit', String(recordsPerPage));
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
       const response = await api.get(`/pan-kyc/records?${params.toString()}`);
       const res = response.data;
       if (res.success) {
@@ -165,7 +170,7 @@ const PanKycRecords: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     fetchRecords(1);
-  }, [isAuthenticated, user, statusFilter, dateFilter]);
+  }, [isAuthenticated, user, statusFilter, dateFilter, dateFrom, dateTo]);
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > pagination.totalPages) return;
@@ -200,6 +205,8 @@ const PanKycRecords: React.FC = () => {
       params.set('limit', String(EXPORT_CAP));
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
       const response = await api.get(`/pan-kyc/records?${params.toString()}`, {
         timeout: HEAVY_REQUEST_TIMEOUT_MS
       });
@@ -417,22 +424,26 @@ const PanKycRecords: React.FC = () => {
               <option value="all">All Statuses</option>
               <option value="verified">Verified</option>
               <option value="rejected">Rejected</option>
+              <option value="pending">Pending</option>
+              <option value="error">Error</option>
             </select>
           </div>
 
-          {/* Date Filter */}
-          <div className="lg:w-48">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
+          <RecordDateRangeFilters
+            accent="blue"
+            dateFilter={dateFilter}
+            onDateFilterChange={setDateFilter}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onClear={() => {
+              setDateFilter('all');
+              setDateFrom('');
+              setDateTo('');
+            }}
+            className="w-full lg:flex-1"
+          />
         </div>
       </div>
 

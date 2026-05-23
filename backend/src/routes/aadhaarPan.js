@@ -11,6 +11,7 @@ const { logAadhaarPanEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
 const axios = require('axios');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
+const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
 
 const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
 
@@ -246,25 +247,106 @@ router.get('/batches', protect, async (req, res) => {
   }
 });
 
-// Get all records for a user
-router.get('/records', protect, async (req, res) => {
-  try {
-    const records = await AadhaarPan.find({ userId: req.user.id })
-      .sort({ createdAt: -1 })
-      .lean();
+const AADHAAR_PAN_EXPORT_MAX = 200;
 
+// Get records for a user (status, date, pagination; optional export)
+router.get('/records', protect, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const isExport =
+      String(req.query.export || '') === 'true' ||
+      req.query.export === '1' ||
+      String(req.query.export || '') === 'csv';
+    const page = isExport ? 1 : Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = isExport
+      ? Math.min(
+          AADHAAR_PAN_EXPORT_MAX,
+          Math.max(1, parseInt(req.query.limit, 10) || AADHAAR_PAN_EXPORT_MAX)
+        )
+      : Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const statusFilter = req.query.status || 'all';
+    const dateFilter = req.query.dateFilter || 'all';
+    const dateFrom = req.query.dateFrom || '';
+    const dateTo = req.query.dateTo || '';
+    const search = String(req.query.search || '').trim();
+    const skip = isExport ? 0 : (page - 1) * limit;
+
+    const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
+    if (statusFilter !== 'all') {
+      match.status = statusFilter;
+    }
+    applyCreatedAtDateFilter(match, { dateFilter, dateFrom, dateTo });
+    if (search) {
+      const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      match.$or = [
+        { aadhaarNumber: searchRegex },
+        { panNumber: searchRegex },
+        { name: searchRegex },
+        { batchId: searchRegex }
+      ];
+    }
+
+    const [facetResult] = await AadhaarPan.aggregate([
+      { $match: match },
+      {
+        $facet: {
+          totalCount: [{ $count: 'count' }],
+          statusCounts: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          records: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit }
+          ]
+        }
+      }
+    ]);
+
+    const totalRecords = facetResult.totalCount[0] ? facetResult.totalCount[0].count : 0;
+    const statusCounts = (facetResult.statusCounts || []).reduce((acc, { _id, count }) => {
+      acc[_id] = count;
+      return acc;
+    }, {});
+    const rawRecords = facetResult.records || [];
+
+    const decryptedRecords = rawRecords.map((record) => {
+      try {
+        const tempRecord = new AadhaarPan(record);
+        return tempRecord.decryptData();
+      } catch (error) {
+        logger.error('Decryption error for Aadhaar-PAN record:', record._id, error.message);
+        return record;
+      }
+    });
+
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     res.json({
       success: true,
-      data: records
+      data: decryptedRecords,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalRecords / limit) || 1,
+        totalRecords,
+        limit
+      },
+      stats: {
+        total: totalRecords,
+        linked: statusCounts.linked || 0,
+        'not-linked': statusCounts['not-linked'] || 0,
+        pending: statusCounts.pending || 0,
+        invalid: statusCounts.invalid || 0,
+        error: statusCounts.error || 0
+      },
+      _meta: { responseTimeMs: durationMs }
     });
   } catch (error) {
+    const durationMs = Date.now() - startTime;
+    res.set('X-Response-Time-Ms', String(durationMs));
     logger.error('Error fetching Aadhaar-PAN records:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch records',
-      error: error.message,
-            sandboxApiResponse: error.sandboxApiResponse,
-            sandboxApiStatus: error.sandboxApiStatus
+      error: error.message
     });
   }
 });

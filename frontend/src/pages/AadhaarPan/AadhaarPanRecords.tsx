@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import api from '../../services/api';
+import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
+import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { 
   MagnifyingGlassIcon,
   CheckCircleIcon,
@@ -22,7 +23,7 @@ interface AadhaarPanRecord {
   fatherName?: string;
   dateOfBirth?: string;
   gender?: string;
-  status: 'linked' | 'not-linked';
+  status: 'linked' | 'not-linked' | 'pending' | 'invalid' | 'error';
   linkingDetails?: {
     apiResponse?: any;
     linkingDate?: string;
@@ -56,6 +57,9 @@ interface RecordsStats {
   total: number;
   linked: number;
   'not-linked': number;
+  pending?: number;
+  invalid?: number;
+  error?: number;
 }
 
 const AadhaarPanRecords: React.FC = () => {
@@ -70,121 +74,128 @@ const AadhaarPanRecords: React.FC = () => {
     'not-linked': 0
   });
   
-  // Ref to track if we've already fetched records to prevent multiple API calls
-  const hasFetchedRecords = useRef(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalRecords: 0,
+    limit: 20
+  });
 
-  // Pagination and search
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage] = useState(20);
+  const recordsPerPage = 20;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterPreset>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
-  // Fetch all records
-  const fetchRecords = async () => {
-    // Check if user is authenticated
+  const fetchRecords = async (
+    page: number = pagination.currentPage,
+    searchOverride?: string
+  ) => {
     if (!isAuthenticated || !user) {
-      showToast({
-        message: 'Please log in to view records',
-        type: 'error'
-      });
+      showToast({ message: 'Please log in to view records', type: 'error' });
       return;
     }
+    if (loading) return;
 
-    // Prevent multiple API calls
-    if (hasFetchedRecords.current || loading) {
-      return;
-    }
+    const searchQuery = searchOverride !== undefined ? searchOverride : searchTerm;
 
     try {
       setLoading(true);
-      hasFetchedRecords.current = true;
-      const response = await api.get('/aadhaar-pan/records');
-      if (response.data.success) {
-        setRecords(response.data.data);
-        calculateStats(response.data.data);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', String(recordsPerPage));
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+
+      const response = await api.get(`/aadhaar-pan/records?${params.toString()}`);
+      const res = response.data;
+      if (res.success) {
+        setRecords(res.data || []);
+        if (res.pagination) {
+          setPagination({
+            currentPage: res.pagination.currentPage,
+            totalPages: res.pagination.totalPages,
+            totalRecords: res.pagination.totalRecords,
+            limit: res.pagination.limit
+          });
+        }
+        if (res.stats) {
+          setStats({
+            total: res.stats.total ?? 0,
+            linked: res.stats.linked ?? 0,
+            'not-linked': res.stats['not-linked'] ?? 0,
+            pending: res.stats.pending ?? 0,
+            invalid: res.stats.invalid ?? 0,
+            error: res.stats.error ?? 0
+          });
+        }
       }
     } catch (error: any) {
-      hasFetchedRecords.current = false; // Reset on error so we can retry
       if (error.response?.status === 401) {
-        showToast({
-          message: 'Authentication failed. Please log in again.',
-          type: 'error'
-        });
-        console.error('Authentication error:', error);
+        showToast({ message: 'Authentication failed. Please log in again.', type: 'error' });
       } else {
-        showToast({
-          message: 'Failed to fetch records',
-          type: 'error'
-        });
-        console.error('Error fetching records:', error);
+        showToast({ message: 'Failed to fetch records', type: 'error' });
       }
+      console.error('Error fetching records:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate statistics
-  const calculateStats = (data: AadhaarPanRecord[]) => {
-    const linked = data.filter(r => r.status === 'linked').length;
-    const notLinked = data.filter(r => r.status === 'not-linked').length;
-    const stats = {
-      total: linked + notLinked,
-      linked: linked,
-      'not-linked': notLinked
-    };
-    setStats(stats);
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    fetchRecords(1);
+  }, [isAuthenticated, user, statusFilter, dateFilter, dateFrom, dateTo]);
+
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchRecords(1, value);
+    }, 400);
   };
 
-  // Filter records based on search and filters
-  const filteredRecords = records.filter(record => {
-    // Only show records with valid statuses (linked or not-linked)
-    const hasValidStatus = record.status === 'linked' || record.status === 'not-linked';
-    
-    const matchesSearch = 
-      record.aadhaarNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.panNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.batchId?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    
-    let matchesDate = true;
-    if (dateFilter !== 'all') {
-      const recordDate = new Date(record.createdAt);
-      const now = new Date();
-      const diffDays = Math.floor((now.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      switch (dateFilter) {
-        case 'today':
-          matchesDate = diffDays === 0;
-          break;
-        case 'week':
-          matchesDate = diffDays <= 7;
-          break;
-        case 'month':
-          matchesDate = diffDays <= 30;
-          break;
-      }
-    }
-    
-    return hasValidStatus && matchesSearch && matchesStatus && matchesDate;
-  });
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > pagination.totalPages) return;
+    fetchRecords(page);
+  };
 
-  // Pagination
-  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
-  const paginatedRecords = filteredRecords.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage
-  );
+  const paginatedRecords = records;
+  const totalPages = pagination.totalPages;
 
-  const handleExport = (format: ReportExportFormat) => {
-    if (filteredRecords.length === 0) {
-      showToast({ message: 'No records to export', type: 'error' });
+  const EXPORT_CAP = 200;
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!isAuthenticated || !user) {
+      showToast({ message: 'Please log in to export', type: 'error' });
       return;
     }
     setExporting(true);
     try {
+      const params = new URLSearchParams();
+      params.set('export', '1');
+      params.set('limit', String(EXPORT_CAP));
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (dateFilter !== 'all') params.set('dateFilter', dateFilter);
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+
+      const response = await api.get(`/aadhaar-pan/records?${params.toString()}`, {
+        timeout: HEAVY_REQUEST_TIMEOUT_MS
+      });
+      const res = response.data;
+      if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
+        showToast({ message: 'No records to export', type: 'error' });
+        return;
+      }
+      const rows: AadhaarPanRecord[] = res.data;
       const headers = [
         'Batch ID',
         'Aadhaar Number',
@@ -200,7 +211,7 @@ const AadhaarPanRecords: React.FC = () => {
         'Processed At',
         'Error Message'
       ];
-      const matrix: string[][] = filteredRecords.map((record) => [
+      const matrix: string[][] = rows.map((record) => [
         record.batchId,
         record.aadhaarNumber,
         record.panNumber,
@@ -215,7 +226,7 @@ const AadhaarPanRecords: React.FC = () => {
         record.processedAt ? new Date(record.processedAt).toLocaleString() : '',
         record.errorMessage || ''
       ]);
-      const jsonPayload = filteredRecords.map((r) => ({
+      const jsonPayload = rows.map((r) => ({
         batchId: r.batchId,
         aadhaarNumber: r.aadhaarNumber,
         panNumber: r.panNumber,
@@ -232,10 +243,17 @@ const AadhaarPanRecords: React.FC = () => {
       }));
       downloadReport('aadhaar-pan-records', format, headers, matrix, 'Aadhaar PAN', jsonPayload);
       const fmt = format === 'xls' ? 'Excel' : format.toUpperCase();
+      const totalMatching = res.pagination?.totalRecords ?? rows.length;
+      const hitExportCap = totalMatching > EXPORT_CAP;
       showToast({
-        message: `${fmt} downloaded (${filteredRecords.length} record${filteredRecords.length === 1 ? '' : 's'})`,
+        message: hitExportCap
+          ? `${fmt}: first ${rows.length} of ${totalMatching} records (export limit ${EXPORT_CAP})`
+          : `${fmt} downloaded (${rows.length} record${rows.length === 1 ? '' : 's'})`,
         type: 'success'
       });
+    } catch (error: any) {
+      console.error('Export failed:', error);
+      showToast({ message: 'Failed to export', type: 'error' });
     } finally {
       setExporting(false);
     }
@@ -248,6 +266,11 @@ const AadhaarPanRecords: React.FC = () => {
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
       case 'not-linked':
         return <XCircleIcon className="h-5 w-5 text-red-500" />;
+      case 'invalid':
+      case 'error':
+        return <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />;
+      case 'pending':
+        return <ClockIcon className="h-5 w-5 text-gray-500" />;
       default:
         return <ClockIcon className="h-5 w-5 text-gray-500" />;
     }
@@ -259,6 +282,11 @@ const AadhaarPanRecords: React.FC = () => {
         return 'bg-green-100 text-green-800';
       case 'not-linked':
         return 'bg-red-100 text-red-800';
+      case 'invalid':
+      case 'error':
+        return 'bg-amber-100 text-amber-800';
+      case 'pending':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -274,17 +302,6 @@ const AadhaarPanRecords: React.FC = () => {
       minute: '2-digit'
     });
   };
-
-  // Reset fetch flag when user changes
-  useEffect(() => {
-    hasFetchedRecords.current = false;
-  }, [user?._id]);
-
-  useEffect(() => {
-    if (isAuthenticated && user && !hasFetchedRecords.current) {
-      fetchRecords();
-    }
-  }, [isAuthenticated, user]);
 
   return (
     <div className="space-y-6">
@@ -309,10 +326,7 @@ const AadhaarPanRecords: React.FC = () => {
             </div>
             <div className="flex space-x-3">
               <button
-                onClick={() => {
-                  hasFetchedRecords.current = false;
-                  fetchRecords();
-                }}
+                onClick={() => fetchRecords(pagination.currentPage)}
                 disabled={loading}
                 className="inline-flex items-center px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold rounded-2xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 transform border border-white/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
@@ -385,7 +399,7 @@ const AadhaarPanRecords: React.FC = () => {
                 type="text"
                 placeholder="Search by Aadhaar, PAN, Name, or Batch ID..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
               />
             </div>
@@ -401,22 +415,27 @@ const AadhaarPanRecords: React.FC = () => {
               <option value="all">All Statuses</option>
               <option value="linked">Operative</option>
               <option value="not-linked">Inoperative</option>
+              <option value="pending">Pending</option>
+              <option value="invalid">Invalid</option>
+              <option value="error">Error</option>
             </select>
           </div>
 
-          {/* Date Filter */}
-          <div className="lg:w-48">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
+          <RecordDateRangeFilters
+            accent="emerald"
+            dateFilter={dateFilter}
+            onDateFilterChange={setDateFilter}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onClear={() => {
+              setDateFilter('all');
+              setDateFrom('');
+              setDateTo('');
+            }}
+            className="w-full lg:flex-1"
+          />
         </div>
       </div>
 
@@ -424,7 +443,7 @@ const AadhaarPanRecords: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
         <div className="px-6 py-6 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
           <h3 className="text-xl font-semibold text-emerald-800">
-            Records ({filteredRecords.length})
+            Records ({pagination.totalRecords})
           </h3>
         </div>
 
@@ -536,24 +555,24 @@ const AadhaarPanRecords: React.FC = () => {
               <div className="px-6 py-6 border-t border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-emerald-700">
-                    Showing <span className="font-semibold">{((currentPage - 1) * recordsPerPage) + 1}</span> to{' '}
-                    <span className="font-semibold">{Math.min(currentPage * recordsPerPage, filteredRecords.length)}</span> of{' '}
-                    <span className="font-semibold">{filteredRecords.length}</span> records
+                    Showing <span className="font-semibold">{((pagination.currentPage - 1) * recordsPerPage) + 1}</span> to{' '}
+                    <span className="font-semibold">{Math.min(pagination.currentPage * recordsPerPage, pagination.totalRecords)}</span> of{' '}
+                    <span className="font-semibold">{pagination.totalRecords}</span> records
                   </div>
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
                       className="px-4 py-2 text-sm font-medium border border-emerald-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-50 transition-colors duration-200"
                     >
                       Previous
                     </button>
                     <span className="px-4 py-2 text-sm font-medium text-emerald-700 bg-white rounded-xl border border-emerald-200">
-                      {currentPage} of {totalPages}
+                      {pagination.currentPage} of {totalPages}
                     </span>
                     <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === totalPages}
                       className="px-4 py-2 text-sm font-medium border border-emerald-300 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-50 transition-colors duration-200"
                     >
                       Next
