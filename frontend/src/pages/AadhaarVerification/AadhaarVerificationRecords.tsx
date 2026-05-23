@@ -920,66 +920,62 @@ const AadhaarVerificationRecords: React.FC = () => {
           {/* Advanced Filters Panel */}
           {showAdvancedFilters && (
             <div className="border-t border-gray-200 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => handleFilterChange({ ...filters, status: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
-                  >
-                    <option value="">All Status</option>
-                    <option value="verified">Verified</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="invalid">Invalid</option>
-                    <option value="error">Error</option>
-                    <option value="pending">Pending</option>
-                  </select>
+              <div className="flex flex-col gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Status</label>
+                    <select
+                      value={filters.status}
+                      onChange={(e) => handleFilterChange({ ...filters, status: e.target.value })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
+                    >
+                      <option value="">All Status</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="invalid">Invalid</option>
+                      <option value="error">Error</option>
+                      <option value="pending">Pending</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">Sort By</label>
+                    <select
+                      value={filters.sortBy}
+                      onChange={(e) => handleFilterChange({ ...filters, sortBy: e.target.value })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
+                    >
+                      <option value="createdAt">Date Created</option>
+                      <option value="name">Name</option>
+                      <option value="aadhaarNumber">Aadhaar Number</option>
+                      <option value="status">Status</option>
+                      <option value="district">District</option>
+                      <option value="state">State</option>
+                    </select>
+                  </div>
                 </div>
-
-                <div className="md:col-span-2 lg:col-span-3">
-                  <RecordDateRangeFilters
-                    accent="blue"
-                    dateFilter={filters.dateFilter}
-                    onDateFilterChange={(dateFilter) =>
-                      handleFilterChange({ ...filters, dateFilter })
-                    }
-                    dateFrom={filters.dateFrom}
-                    dateTo={filters.dateTo}
-                    onDateFromChange={(dateFrom) =>
-                      handleFilterChange({ ...filters, dateFrom, dateFilter: 'all' })
-                    }
-                    onDateToChange={(dateTo) =>
-                      handleFilterChange({ ...filters, dateTo, dateFilter: 'all' })
-                    }
-                    onClear={() =>
-                      handleFilterChange({
-                        ...filters,
-                        dateFilter: 'all',
-                        dateFrom: '',
-                        dateTo: ''
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Sort By Filter */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Sort By</label>
-                  <select
-                    value={filters.sortBy}
-                    onChange={(e) => handleFilterChange({ ...filters, sortBy: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-white/80 backdrop-blur-sm"
-                  >
-                    <option value="createdAt">Date Created</option>
-                    <option value="name">Name</option>
-                    <option value="aadhaarNumber">Aadhaar Number</option>
-                    <option value="status">Status</option>
-                    <option value="district">District</option>
-                    <option value="state">State</option>
-                  </select>
-                </div>
+                <RecordDateRangeFilters
+                  accent="blue"
+                  dateFilter={filters.dateFilter}
+                  onDateFilterChange={(dateFilter) =>
+                    handleFilterChange({ ...filters, dateFilter })
+                  }
+                  dateFrom={filters.dateFrom}
+                  dateTo={filters.dateTo}
+                  onDateFromChange={(dateFrom) =>
+                    handleFilterChange({ ...filters, dateFrom, dateFilter: 'all' })
+                  }
+                  onDateToChange={(dateTo) =>
+                    handleFilterChange({ ...filters, dateTo, dateFilter: 'all' })
+                  }
+                  onClear={() =>
+                    handleFilterChange({
+                      ...filters,
+                      dateFilter: 'all',
+                      dateFrom: '',
+                      dateTo: ''
+                    })
+                  }
+                />
               </div>
 
               {/* Filter Actions */}

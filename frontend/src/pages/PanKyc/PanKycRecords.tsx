@@ -397,13 +397,12 @@ const PanKycRecords: React.FC = () => {
         </div>
       </div>
 
-      {/* Enhanced Filters and Search */}
+      {/* Filters and Search */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 min-w-0">
+              <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by PAN, Name, or Batch ID..."
@@ -412,23 +411,23 @@ const PanKycRecords: React.FC = () => {
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               />
             </div>
+            <div className="w-full sm:w-44 shrink-0">
+              <label className="block text-xs font-medium text-gray-600 mb-1 sm:sr-only">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              >
+                <option value="all">All Statuses</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+                <option value="pending">Pending</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
           </div>
-
-          {/* Status Filter */}
-          <div className="lg:w-48">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-            >
-              <option value="all">All Statuses</option>
-              <option value="verified">Verified</option>
-              <option value="rejected">Rejected</option>
-              <option value="pending">Pending</option>
-              <option value="error">Error</option>
-            </select>
-          </div>
-
           <RecordDateRangeFilters
             accent="blue"
             dateFilter={dateFilter}
@@ -442,7 +441,6 @@ const PanKycRecords: React.FC = () => {
               setDateFrom('');
               setDateTo('');
             }}
-            className="w-full lg:flex-1"
           />
         </div>
       </div>

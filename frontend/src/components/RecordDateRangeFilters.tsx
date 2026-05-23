@@ -10,7 +10,6 @@ export interface RecordDateRangeFiltersProps {
   onDateFromChange: (value: string) => void;
   onDateToChange: (value: string) => void;
   onClear?: () => void;
-  /** Tailwind focus ring color token, e.g. blue, emerald, indigo */
   accent?: 'blue' | 'emerald' | 'indigo';
   className?: string;
 }
@@ -33,8 +32,9 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
   className = ''
 }) => {
   const ring = accentRing[accent];
-  const inputClass = `w-full px-3 py-3 border border-gray-200 rounded-xl focus:ring-2 ${ring} transition-all duration-200 text-sm`;
+  const inputClass = `w-full min-w-0 px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 ${ring} transition-all duration-200 text-sm`;
   const hasCustomRange = Boolean(dateFrom || dateTo);
+  const showClear = (hasCustomRange || dateFilter !== 'all') && onClear;
 
   const handlePresetChange = (value: string) => {
     onDateFilterChange(value as DateFilterPreset);
@@ -55,8 +55,14 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
   };
 
   return (
-    <div className={`flex flex-col sm:flex-row flex-wrap gap-3 ${className}`}>
-      <div className="sm:w-40 min-w-[8rem]">
+    <div
+      className={`grid w-full gap-3 items-end ${
+        showClear
+          ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]'
+          : 'grid-cols-2 sm:grid-cols-3'
+      } ${className}`}
+    >
+      <div className="min-w-0">
         <label className="block text-xs font-medium text-gray-600 mb-1">Period</label>
         <select
           value={dateFilter}
@@ -71,7 +77,7 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
           <option value="month">This month</option>
         </select>
       </div>
-      <div className="sm:w-40 min-w-[8rem]">
+      <div className="min-w-0">
         <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
         <input
           type="date"
@@ -81,7 +87,7 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
           className={inputClass}
         />
       </div>
-      <div className="sm:w-40 min-w-[8rem]">
+      <div className="min-w-0">
         <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
         <input
           type="date"
@@ -91,12 +97,12 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
           className={inputClass}
         />
       </div>
-      {(hasCustomRange || dateFilter !== 'all') && onClear && (
-        <div className="flex items-end">
+      {showClear && (
+        <div className="col-span-2 sm:col-span-1 min-w-0">
           <button
             type="button"
             onClick={onClear}
-            className="px-4 py-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+            className="w-full whitespace-nowrap px-3 py-2.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
           >
             Clear dates
           </button>
