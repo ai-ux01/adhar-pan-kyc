@@ -1663,8 +1663,22 @@ router.post('/users/:id/logo', protect, authorize('admin'), upload.single('logo'
       });
     }
 
-    // Store old logo info for audit
+    // Store old logo info for audit and remove previous file
     const oldLogo = user.branding?.logo || null;
+
+    if (oldLogo?.path) {
+      const oldAbsolute = path.resolve(
+        path.join(__dirname, '..', '..'),
+        String(oldLogo.path).replace(/\\/g, '/')
+      );
+      if (fs.existsSync(oldAbsolute)) {
+        try {
+          fs.unlinkSync(oldAbsolute);
+        } catch (unlinkErr) {
+          logger.warn('Could not delete previous logo file:', unlinkErr.message);
+        }
+      }
+    }
 
     // Update logo information
     // Store relative path from backend directory for consistency
@@ -1676,7 +1690,8 @@ router.post('/users/:id/logo', protect, authorize('admin'), upload.single('logo'
       originalName: req.file.originalname,
       path: relativePath.replace(/\\/g, '/'), // Normalize path separators to forward slashes
       mimetype: req.file.mimetype,
-      size: req.file.size
+      size: req.file.size,
+      uploadedAt: new Date()
     };
 
     await user.save();
@@ -1793,74 +1808,26 @@ router.get('/users/:id/logo', async (req, res) => {
     
     // Check if file exists
     if (!fs.existsSync(absolutePath)) {
-      logger.warn(`Logo file not found at primary path: ${absolutePath}`);
-      // Fallback: Try to find the logo by filename if path doesn't work
-      // This handles cases where the path format changed or files were moved
+      logger.warn(`Logo file not found at path: ${absolutePath} for user ${req.params.id}`);
       const filename = user.branding.logo.filename;
-      const logosDir = path.join(__dirname, '..', '..', 'uploads', 'logos');
-      
       if (filename) {
-        // First try exact filename match
-        const fallbackPath = path.join(logosDir, filename);
+        const fallbackPath = path.join(__dirname, '..', '..', 'uploads', 'logos', filename);
         if (fs.existsSync(fallbackPath)) {
-          logger.info(`Using fallback path for logo: ${fallbackPath} for user ${req.params.id}`);
           absolutePath = fallbackPath;
-          // Update the stored path for future requests
-          user.branding.logo.path = `uploads/logos/${filename}`;
-          await user.save().catch(err => logger.error('Failed to update logo path:', err));
         } else {
-          // Last resort: Try to find any logo file in the directory
-          // This handles cases where the file was renamed or replaced
-          try {
-            if (fs.existsSync(logosDir)) {
-              const files = fs.readdirSync(logosDir).filter(file => 
-                file.toLowerCase().endsWith('.jpg') || 
-                file.toLowerCase().endsWith('.jpeg') || 
-                file.toLowerCase().endsWith('.png') ||
-                file.toLowerCase().endsWith('.gif')
-              );
-              
-              if (files.length > 0) {
-                // Use the most recent logo file (by filename timestamp if available, or just the first one)
-                const latestFile = files.sort().pop();
-                const latestPath = path.join(logosDir, latestFile);
-                logger.info(`Using alternative logo file: ${latestPath} for user ${req.params.id}`);
-                absolutePath = latestPath;
-                // Update the stored path and filename in database
-                user.branding.logo.path = `uploads/logos/${latestFile}`;
-                user.branding.logo.filename = latestFile;
-                await user.save().catch(err => logger.error('Failed to update logo path:', err));
-              } else {
-                logger.warn(`No logo files found in ${logosDir} for user ${req.params.id}`);
-                return res.status(404).json({
-                  success: false,
-                  message: 'Logo file not found on server'
-                });
-              }
-            } else {
-              logger.warn(`Logo directory does not exist: ${logosDir} for user ${req.params.id}`);
-              return res.status(404).json({
-                success: false,
-                message: 'Logo file not found on server'
-              });
-            }
-          } catch (err) {
-            logger.error(`Error searching for logo files: ${err.message}`);
-            return res.status(404).json({
-              success: false,
-              message: 'Logo file not found on server'
-            });
-          }
+          return res.status(404).json({
+            success: false,
+            message: 'Logo file not found on server'
+          });
         }
       } else {
-        logger.warn(`Logo file not found: ${absolutePath} for user ${req.params.id}`);
         return res.status(404).json({
           success: false,
           message: 'Logo file not found on server'
         });
       }
     }
-    
+
     // Set CORS headers for image serving
     res.set({
       'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.origin),
@@ -1868,9 +1835,12 @@ router.get('/users/:id/logo', async (req, res) => {
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Cross-Origin-Embedder-Policy': 'unsafe-none'
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     });
-    
+
     res.sendFile(absolutePath);
   } catch (error) {
     logger.error('Error serving user logo:', error);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { getUserLogoUrl } from '../../utils/userLogo';
 import {
   Bars3Icon,
   XMarkIcon,
@@ -19,7 +20,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUserData } = useAuth();
   const location = useLocation();
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -42,28 +43,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
 
-  // Memoize the logo URL to avoid unnecessary re-renders
-  const logoUrl = useMemo(() => {
-    if (user?.branding?.logo && user?._id) {
-      // Determine API base URL - same logic as api.ts
-      const getApiBaseURL = () => {
-        if (process.env.REACT_APP_API_URL) {
-          return process.env.REACT_APP_API_URL;
-        }
-        const isProduction = window.location.hostname !== 'localhost' && 
-                             window.location.hostname !== '127.0.0.1' &&
-                             !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
-      };
-      const baseUrl = getApiBaseURL();
-      // Use the API endpoint to serve the logo - this ensures proper path resolution and fallback handling
-      const url = `${baseUrl.replace('/api', '')}/api/admin/users/${user._id}/logo`;
-      // Add cache busting parameter based on logo filename to ensure fresh image loads
-      const cacheBuster = user.branding.logo.filename ? `?v=${user.branding.logo.filename}` : '';
-      return `${url}${cacheBuster}`;
-    }
-    return null;
-  }, [user?.branding?.logo, user?._id]);
+  // Refresh branding (logo, display name) when user opens app or returns to tab
+  useEffect(() => {
+    if (!user?._id) return;
+
+    refreshUserData();
+
+    const onFocus = () => {
+      refreshUserData();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user?._id]);
+
+  const logoUrl = useMemo(
+    () => getUserLogoUrl(user?._id, user?.branding?.logo),
+    [user?._id, user?.branding?.logo?.filename, user?.branding?.logo?.uploadedAt]
+  );
+
+  const logoCacheKey =
+    user?.branding?.logo?.uploadedAt || user?.branding?.logo?.filename || 'default';
 
 
 
@@ -129,6 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {logoUrl ? (
                   <div className="relative group">
                     <img
+                      key={logoCacheKey}
                       src={logoUrl}
                       alt="Company Logo"
                       className="h-20 w-20 object-contain rounded-3xl shadow-2xl mb-3 border-2 border-white/40 transition-all duration-300 group-hover:scale-105 group-hover:shadow-3xl"
@@ -241,6 +241,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {logoUrl ? (
                   <div className="relative group">
                     <img
+                      key={logoCacheKey}
                       src={logoUrl}
                       alt="Company Logo"
                       className="h-20 w-20 object-contain rounded-3xl shadow-2xl mb-3 border-2 border-white/40 transition-all duration-300 group-hover:scale-105 group-hover:shadow-3xl"

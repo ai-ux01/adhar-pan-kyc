@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import CustomFieldsManager from '../../components/CustomFieldsManager';
 import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
+import { getUserLogoUrl } from '../../utils/userLogo';
 import { 
   UserGroupIcon, 
   ChartBarIcon, 
@@ -706,7 +707,6 @@ const Admin: React.FC = () => {
         });
       }
 
-      // Upload logo if selected
       if (brandingForm.logoFile) {
         const formData = new FormData();
         formData.append('logo', brandingForm.logoFile);
@@ -723,18 +723,13 @@ const Admin: React.FC = () => {
         duration: 4000
       });
       setShowBranding(false);
-      setSelectedUserForModules(null);
+      setSelectedUserForBranding(null);
       setBrandingForm({ companyName: '', displayName: '', address: '', gstNumber: '', logoFile: null });
-      fetchUsers();
+      await fetchUsers();
       
-      // If admin is updating their own branding, refresh the auth context
+      // Refresh auth context when the logged-in user's branding changed
       if (userId === user?._id) {
-        console.log('🔄 Refreshing user data for admin...');
-        // Add a small delay to avoid conflicts with initialization
-        setTimeout(async () => {
-          const refreshedUser = await refreshUserData();
-          console.log('🔄 Refreshed user data:', refreshedUser);
-        }, 100);
+        await refreshUserData();
       }
     } catch (error: any) {
       console.error('Error updating branding:', error);
@@ -2999,7 +2994,16 @@ const Admin: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     {selectedUserForBranding.branding?.logo && (
                       <img
-                        src={`/api/admin/users/${selectedUserForBranding._id}/logo`}
+                        key={
+                          selectedUserForBranding.branding.logo.uploadedAt ||
+                          selectedUserForBranding.branding.logo.filename
+                        }
+                        src={
+                          getUserLogoUrl(
+                            selectedUserForBranding._id,
+                            selectedUserForBranding.branding.logo
+                          ) || ''
+                        }
                         alt="Current logo"
                         className="w-12 h-12 object-contain border border-gray-300 rounded"
                       />

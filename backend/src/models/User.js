@@ -101,6 +101,7 @@ const UserSchema = new mongoose.Schema({
       path: String,
       mimetype: String,
       size: Number,
+      uploadedAt: Date,
     },
     companyName: {
       type: String,

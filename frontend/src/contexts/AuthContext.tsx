@@ -25,6 +25,7 @@ interface User {
       path: string;
       mimetype: string;
       size: number;
+      uploadedAt?: string;
     };
     companyName?: string;
     displayName?: string;
@@ -122,9 +123,16 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         loading: false,
       };
     case 'UPDATE_USER':
+      if (!state.user) return state;
       return {
         ...state,
-        user: state.user ? { ...state.user, ...action.payload } : null,
+        user: {
+          ...state.user,
+          ...action.payload,
+          branding: action.payload.branding
+            ? { ...state.user.branding, ...action.payload.branding }
+            : state.user.branding,
+        },
       };
     case 'SET_LOADING':
       return {

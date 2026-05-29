@@ -19,6 +19,8 @@ const getApiBaseURL = () => {
 
 const apiBaseURL = getApiBaseURL();
 
+export { getApiBaseURL };
+
 /** Use for heavy GETs (bulk export, many DB decrypts). Default axios timeout is too short after Render cold start. */
 export const HEAVY_REQUEST_TIMEOUT_MS = 180000;
 
