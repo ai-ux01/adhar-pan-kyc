@@ -98,6 +98,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       current: location.pathname.startsWith('/aadhaar-verification'),
       module: 'aadhaar-verification',
     },
+    {
+      name: 'Verify Udyam',
+      href: '/udyam',
+      icon: BuildingOffice2Icon,
+      current: location.pathname === '/udyam',
+      module: 'udyam',
+    },
     ...(user?.role === 'admin' ? [{
       name: 'Admin',
       href: '/admin',

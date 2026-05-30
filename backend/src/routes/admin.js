@@ -1471,7 +1471,7 @@ router.patch('/users/:id/module-access', protect, authorize('admin'), async (req
     }
 
     // Validate module names
-    const validModules = ['pan-kyc', 'aadhaar-pan', 'aadhaar-verification', 'selfie-upload', 'qr-code'];
+    const validModules = ['pan-kyc', 'aadhaar-pan', 'aadhaar-verification', 'selfie-upload', 'qr-code', 'udyam'];
     const invalidModules = moduleAccess.filter(module => !validModules.includes(module));
     
     if (invalidModules.length > 0) {

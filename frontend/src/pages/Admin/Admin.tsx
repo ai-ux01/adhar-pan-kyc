@@ -1542,6 +1542,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                                   {module === 'pan-kyc' ? 'PAN KYC' : 
                                    module === 'aadhaar-pan' ? 'Aadhaar-PAN' : 
                                    module === 'aadhaar-verification' ? 'Aadhaar Verification' :
+                                   module === 'udyam' ? 'Verify Udyam' :
                                    module === 'selfie-upload' ? 'Selfie Upload' :
                                    module === 'qr-code' ? 'QR Code' : module}
                                 </span>
@@ -2953,6 +2954,24 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                         className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">Aadhaar Verification</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserForModules.moduleAccess.includes('udyam')}
+                        onChange={(e) => {
+                          const newModuleAccess = e.target.checked
+                            ? [...selectedUserForModules.moduleAccess, 'udyam']
+                            : selectedUserForModules.moduleAccess.filter(m => m !== 'udyam');
+                          setSelectedUserForModules({
+                            ...selectedUserForModules,
+                            moduleAccess: newModuleAccess
+                          });
+                        }}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Verify Udyam</span>
                     </label>
                     
                     <label className="flex items-center">

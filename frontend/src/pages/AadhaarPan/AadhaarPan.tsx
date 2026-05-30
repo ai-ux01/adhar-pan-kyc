@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useVerificationCredits } from '../../hooks/useVerificationCredits';
 import { 
   DocumentTextIcon, 
   CloudArrowUpIcon, 
@@ -64,6 +65,7 @@ interface Record {
 
 const AadhaarPan: React.FC = () => {
   const { user } = useAuth();
+  const { guardBeforeVerify, syncCreditsAfterVerify } = useVerificationCredits();
   const { showToast } = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<BatchDetail | null>(null);
@@ -357,6 +359,8 @@ const AadhaarPan: React.FC = () => {
     showConfirmation(
       `Are you sure you want to verify ${selectedRecords.size} selected record(s)?`,
       async () => {
+        if (!guardBeforeVerify()) return;
+
         try {
           setVerifying(true);
           setVerifyingRecords(new Set(Array.from(selectedRecords)));
@@ -365,6 +369,7 @@ const AadhaarPan: React.FC = () => {
             recordIds: Array.from(selectedRecords),
             ...AADHAAR_PAN_STATUS_META
           });
+          await syncCreditsAfterVerify(response.data);
 
           showToast({
             type: 'success',
@@ -378,6 +383,7 @@ const AadhaarPan: React.FC = () => {
           }
         } catch (error: any) {
           console.error('Error verifying records:', error);
+          await syncCreditsAfterVerify(error.response?.data);
           showToast({
             type: 'error',
             message: error.response?.data?.message || 'Failed to verify records'
@@ -395,12 +401,15 @@ const AadhaarPan: React.FC = () => {
     showConfirmation(
       'Are you sure you want to verify this record?',
       async () => {
+        if (!guardBeforeVerify()) return;
+
         try {
           setVerifyingRecords(new Set([recordId]));
           const response = await api.post('/aadhaar-pan/status', {
             recordIds: [recordId],
             ...AADHAAR_PAN_STATUS_META
           });
+          await syncCreditsAfterVerify(response.data);
 
           showToast({
             type: 'success',
@@ -413,6 +422,7 @@ const AadhaarPan: React.FC = () => {
           }
         } catch (error: any) {
           console.error('Error verifying record:', error);
+          await syncCreditsAfterVerify(error.response?.data);
           showToast({
             type: 'error',
             message: error.response?.data?.message || 'Failed to verify record'
@@ -484,6 +494,10 @@ const AadhaarPan: React.FC = () => {
     if (!validateSingleVerificationForm()) {
       return;
     }
+
+    if (!guardBeforeVerify()) {
+      return;
+    }
     
     try {
       setSingleVerificationVerifying(true);
@@ -493,6 +507,7 @@ const AadhaarPan: React.FC = () => {
         panNumber: singleVerificationForm.panNumber.toUpperCase(),
         ...AADHAAR_PAN_STATUS_META
       });
+      await syncCreditsAfterVerify(response.data);
 
       const { success, message, data } = response.data;
       if (!success || !data) {
@@ -524,6 +539,7 @@ const AadhaarPan: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error in single verification:', error);
+      await syncCreditsAfterVerify(error.response?.data);
       const errBody = error.response?.data;
       const payload = errBody?.data;
       if (payload && typeof payload === 'object' && payload.status === 'error') {

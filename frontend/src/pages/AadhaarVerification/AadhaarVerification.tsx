@@ -18,6 +18,7 @@ import {
 import { validateAadhaar, filterAadhaarInput, getValidationStatus } from '../../utils/validation';
 import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
 import api from '../../services/api';
+import { useVerificationCredits } from '../../hooks/useVerificationCredits';
 
 interface VerificationStep {
   step: 'enter-details' | 'otp-verification' | 'success' | 'error';
@@ -36,6 +37,7 @@ interface CustomField {
 
 const AadhaarVerification: React.FC = () => {
   const { user, token } = useAuth();
+  const { guardBeforeVerify, syncCreditsAfterVerify } = useVerificationCredits();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<VerificationStep>({ step: 'enter-details' });
   const [isLoading, setIsLoading] = useState(false);
@@ -451,41 +453,30 @@ const AadhaarVerification: React.FC = () => {
       return;
     }
 
+    if (!guardBeforeVerify()) {
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Determine API base URL
-      const getApiBaseURL = () => {
-        if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-        const isProduction = window.location.hostname !== 'localhost' && 
-                             window.location.hostname !== '127.0.0.1' &&
-                             !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
-      };
-      const response = await fetch(`${getApiBaseURL()}/aadhaar-verification/verify-single`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ 
-          aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
-          dynamicFields: [
-            ...dynamicFields.map(field => ({
+      const response = await api.post('/aadhaar-verification/verify-single', {
+        aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
+        dynamicFields: [
+          ...dynamicFields.map(field => ({
             label: field.label,
             value: field.value.trim()
           })),
-            // Include custom fields
-            ...Object.entries(customFields).map(([key, value]) => ({
-              label: key,
-              value: value
-            }))
-          ],
-          customFields: customFields,
-          consentAccepted: consentAccepted
-        })
+          ...Object.entries(customFields).map(([key, value]) => ({
+            label: key,
+            value: value
+          }))
+        ],
+        customFields: customFields,
+        consentAccepted: consentAccepted
       });
 
-      const data = await response.json();
+      const data = response.data;
+      await syncCreditsAfterVerify(data);
 
       if (data.success) {
         if (data.data.otpSent) {
@@ -493,7 +484,7 @@ const AadhaarVerification: React.FC = () => {
             data.data.transactionId != null ? String(data.data.transactionId).trim() : ''
           );
           setCurrentStep({ step: 'otp-verification', data: data.data });
-          setResendCooldown(30); // Start 30-second countdown
+          setResendCooldown(30);
           setCanResend(false);
           toast.success('OTP sent successfully! Please check your registered mobile number.');
         } else {
@@ -505,10 +496,11 @@ const AadhaarVerification: React.FC = () => {
         setCurrentStep({ step: 'error', data: { message: data.message } });
         toast.error(data.message || 'Verification failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying Aadhaar:', error);
+      await syncCreditsAfterVerify(error.response?.data);
       setCurrentStep({ step: 'error', data: { message: 'Failed to verify Aadhaar. Please try again.' } });
-      toast.error('Failed to verify Aadhaar. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to verify Aadhaar. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -517,49 +509,44 @@ const AadhaarVerification: React.FC = () => {
   // Handle resend OTP
   const handleResendOtp = async () => {
     if (!canResend) return;
-    
+
+    if (!guardBeforeVerify()) {
+      return;
+    }
     
     setIsLoading(true);
     try {
-      const response = await fetch('/api/aadhaar-verification/verify-single', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-          dynamicFields: [
-            ...dynamicFields.map(field => ({
+      const response = await api.post('/aadhaar-verification/verify-single', {
+        aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
+        dynamicFields: [
+          ...dynamicFields.map(field => ({
             label: field.label,
             value: field.value.trim()
           })),
-            // Include custom fields
-            ...Object.entries(customFields).map(([key, value]) => ({
-              label: key,
-              value: value
-            }))
-          ],
-          customFields: customFields,
-          consentAccepted: true
-        })
+          ...Object.entries(customFields).map(([key, value]) => ({
+            label: key,
+            value: value
+          }))
+        ],
+        customFields: customFields,
+        consentAccepted: true
       });
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         setTransactionId(
           data.data.transactionId != null ? String(data.data.transactionId).trim() : ''
         );
-        setResendCooldown(30); // Reset countdown
+        setResendCooldown(30);
         setCanResend(false);
         toast.success('OTP resent successfully!');
       } else {
         toast.error(data.message || 'Failed to resend OTP');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resending OTP:', error);
-      toast.error('Failed to resend OTP. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to resend OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -574,34 +561,24 @@ const AadhaarVerification: React.FC = () => {
       return;
     }
 
+    if (!guardBeforeVerify()) {
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Determine API base URL
-      const getApiBaseURL = () => {
-        if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-        const isProduction = window.location.hostname !== 'localhost' && 
-                             window.location.hostname !== '127.0.0.1' &&
-                             !window.location.hostname.startsWith('192.168.');
-        return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
-      };
-      const response = await fetch(`${getApiBaseURL()}/aadhaar-verification/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
-          otp: otp.trim(),
-          transactionId: transactionId,
-          dynamicFields: dynamicFields.map(field => ({
-            label: field.label,
-            value: field.value.trim()
-          }))
-        })
+      const response = await api.post('/aadhaar-verification/verify-otp', {
+        aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
+        otp: otp.trim(),
+        transactionId: transactionId,
+        dynamicFields: dynamicFields.map(field => ({
+          label: field.label,
+          value: field.value.trim()
+        }))
       });
 
-      const data = await response.json();
+      const data = response.data;
+      await syncCreditsAfterVerify(data);
 
       const isVerified = data.success && (data.data?.status === 'verified' || data.data?.status === 'VALID');
       if (isVerified) {
@@ -615,10 +592,11 @@ const AadhaarVerification: React.FC = () => {
         setCurrentStep({ step: 'error', data: { message: data.message } });
         toast.error(data.message || 'OTP verification failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying OTP:', error);
+      await syncCreditsAfterVerify(error.response?.data);
       setCurrentStep({ step: 'error', data: { message: 'Failed to verify OTP. Please try again.' } });
-      toast.error('Failed to verify OTP. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to verify OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }

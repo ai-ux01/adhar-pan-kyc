@@ -1537,6 +1537,13 @@ router.post('/status', protect, async (req, res) => {
         reason: sandboxRequestBody.reason
       });
 
+      let creditResult;
+      try {
+        creditResult = await consumeCredits(req.user.id, 1);
+      } catch (creditError) {
+        return sendCreditsError(res, creditError);
+      }
+
       logger.info('Authenticating with Sandbox API...');
 
       // First authenticate with Sandbox API
@@ -1622,7 +1629,8 @@ router.post('/status', protect, async (req, res) => {
             processedAt: tempRecord.processedAt,
             source: 'sandbox_api',
             consent: sandboxRequestBody.consent,
-            reason: sandboxRequestBody.reason
+            reason: sandboxRequestBody.reason,
+            creditsRemaining: creditResult?.remaining,
           }
         });
 

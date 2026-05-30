@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useVerificationCredits } from '../../hooks/useVerificationCredits';
 import { 
   DocumentTextIcon, 
   CloudArrowUpIcon, 
@@ -70,6 +71,7 @@ interface BatchDetail {
 
 const PanKyc: React.FC = () => {
   const { user } = useAuth();
+  const { guardBeforeVerify, syncCreditsAfterVerify } = useVerificationCredits();
   const { showToast } = useToast();
 
   // Add shimmer animation styles
@@ -518,6 +520,7 @@ const PanKyc: React.FC = () => {
 
   const handleVerifySelectedFromPopup = async () => {
     if (selectedRecords.length === 0) return;
+    if (!guardBeforeVerify()) return;
 
     try {
       setVerifying(true);
@@ -525,6 +528,7 @@ const PanKyc: React.FC = () => {
       const response = await api.post('/pan-kyc/verify', {
         recordIds: selectedRecords
       });
+      await syncCreditsAfterVerify(response.data);
       
       // Show dynamic toast message based on verification results
       if (response.data.success && response.data.data && response.data.data.results) {
@@ -568,6 +572,7 @@ const PanKyc: React.FC = () => {
       await refreshBatches();
     } catch (error) {
       console.error('Error verifying records:', error);
+      await syncCreditsAfterVerify((error as any)?.response?.data);
       showToast({
         type: 'error',
         message: 'Failed to verify selected records'
@@ -590,12 +595,14 @@ const PanKyc: React.FC = () => {
 
   const handleVerifyFromPopup = async () => {
     if (!selectedRecordForVerification) return;
+    if (!guardBeforeVerify()) return;
 
     try {
       setVerifyingRecords(new Set([selectedRecordForVerification._id]));
       const response = await api.post('/pan-kyc/verify', {
         recordIds: [selectedRecordForVerification._id]
       });
+      await syncCreditsAfterVerify(response.data);
       
       // Show dynamic toast message based on verification results
       if (response.data.success && response.data.data && response.data.data.results && response.data.data.results.length > 0) {
@@ -625,6 +632,7 @@ const PanKyc: React.FC = () => {
       await refreshBatches();
     } catch (error) {
       console.error('Error verifying record:', error);
+      await syncCreditsAfterVerify((error as any)?.response?.data);
       showToast({
         type: 'error',
         message: 'Failed to verify record'
@@ -790,6 +798,10 @@ const PanKyc: React.FC = () => {
       return;
     }
 
+    if (!guardBeforeVerify()) {
+      return;
+    }
+
     try {
       setSingleKycVerifying(true);
       setSingleKycResult(null);
@@ -803,6 +815,7 @@ const PanKyc: React.FC = () => {
 
       // Call the verification API
       const response = await api.post('/pan-kyc/verify-single', tempRecord);
+      await syncCreditsAfterVerify(response.data);
       
       setSingleKycResult(response.data.data);
       
@@ -821,6 +834,7 @@ const PanKyc: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error verifying single KYC:', error);
+      await syncCreditsAfterVerify(error.response?.data);
       showToast({
         type: 'error',
         message: error.response?.data?.message || 'Failed to verify KYC'

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { handleCreditsHttpError } from '../utils/creditsSync';
 
 // Types
 interface User {
@@ -452,8 +453,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (error.response?.status === 402) {
-          updateUser({ credits: 0 });
-          window.dispatchEvent(new CustomEvent('credits-exhausted'));
+          handleCreditsHttpError(402, error.response.data);
           return Promise.reject(error);
         }
 
@@ -470,7 +470,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const onCreditsUpdated = (event: Event) => {
       const credits = (event as CustomEvent<{ credits: number }>).detail?.credits;
       if (credits != null) {
-        updateUser({ credits });
+        dispatch({ type: 'UPDATE_USER', payload: { credits } });
       }
     };
 

@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { handleCreditsHttpError, syncCreditsFromPayload } from '../utils/creditsSync';
 
 const PRODUCTION_API_BASE = 'https://adhar-pan-kyc.onrender.com/api';
 
@@ -110,21 +111,7 @@ api.interceptors.request.use(
 // Response interceptor to retry on connection errors
 api.interceptors.response.use(
   (response) => {
-    const payload = response.data;
-    const remaining =
-      payload?.data?.creditsRemaining ??
-      payload?.creditsRemaining ??
-      (Array.isArray(payload?.data?.results)
-        ? payload.data.results.find((row: { creditsRemaining?: number }) => row.creditsRemaining != null)
-            ?.creditsRemaining
-        : undefined);
-
-    if (remaining != null && Number.isFinite(remaining)) {
-      window.dispatchEvent(
-        new CustomEvent('credits-updated', { detail: { credits: remaining } })
-      );
-    }
-
+    syncCreditsFromPayload(response.data);
     return response;
   },
   async (error: AxiosError) => {
@@ -157,8 +144,8 @@ api.interceptors.response.use(
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 402) {
-      window.dispatchEvent(new CustomEvent('credits-exhausted'));
+    if (error.response) {
+      handleCreditsHttpError(error.response.status, error.response.data);
     }
     return Promise.reject(error);
   }
