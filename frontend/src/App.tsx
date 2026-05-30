@@ -222,6 +222,14 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           } />
 
+          <Route path="/admin/partners" element={
+            <ProtectedRoute requiredRole="admin">
+              <Layout>
+                <Admin initialTab="partners" />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>

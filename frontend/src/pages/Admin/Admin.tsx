@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import CustomFieldsManager from '../../components/CustomFieldsManager';
 import PartnersManager from '../../components/PartnersManager';
@@ -35,6 +35,7 @@ interface User {
       path: string;
       mimetype: string;
       size: number;
+      uploadedAt?: string;
     };
     companyName?: string;
     displayName?: string;
@@ -133,11 +134,13 @@ interface SystemStats {
   };
 }
 
-const Admin: React.FC = () => {
+const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) => {
   const { user, refreshUserData } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
@@ -237,6 +240,28 @@ const Admin: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  useEffect(() => {
+    if (location.pathname === '/admin/partners') {
+      setActiveTab('partners');
+      return;
+    }
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location.pathname, searchParams]);
+
+  const openTab = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === 'partners') {
+      navigate('/admin/partners', { replace: true });
+    } else if (tab === 'dashboard') {
+      navigate('/admin', { replace: true });
+    } else {
+      navigate(`/admin?tab=${encodeURIComponent(tab)}`, { replace: true });
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -1026,11 +1051,11 @@ const Admin: React.FC = () => {
         </div>
       )}
 
-      {/* Enhanced Tab Navigation */}
+      {/* Enhanced Tab Navigation — scroll horizontally if many tabs */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2">
-        <nav className="flex flex-wrap gap-2">
+        <nav className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => openTab('dashboard')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'dashboard'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1044,7 +1069,7 @@ const Admin: React.FC = () => {
             Dashboard
           </button>
           <button
-            onClick={() => setActiveTab('users')}
+            onClick={() => openTab('users')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'users'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1055,8 +1080,21 @@ const Admin: React.FC = () => {
             Users
           </button>
           <button
+            onClick={() => openTab('partners')}
+            className={`flex items-center shrink-0 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
+              activeTab === 'partners'
+                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:shadow-md active:scale-95'
+            }`}
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Partners
+          </button>
+          <button
             onClick={() => {
-              setActiveTab('audit');
+              openTab('audit');
               fetchAuditLogs();
             }}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
@@ -1069,8 +1107,8 @@ const Admin: React.FC = () => {
             Audit Logs
           </button>
           <button
-            onClick={() => setActiveTab('stats')}
-            className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
+            onClick={() => openTab('stats')}
+            className={`flex items-center shrink-0 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'stats'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
                 : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:shadow-md active:scale-95'
@@ -1080,7 +1118,7 @@ const Admin: React.FC = () => {
             Statistics
           </button>
           <button
-            onClick={() => setActiveTab('analytics')}
+            onClick={() => openTab('analytics')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'analytics'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1093,7 +1131,7 @@ const Admin: React.FC = () => {
             User Analytics
           </button>
           <button
-            onClick={() => setActiveTab('api')}
+            onClick={() => openTab('api')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'api'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1106,7 +1144,7 @@ const Admin: React.FC = () => {
             API Analytics
           </button>
           <button
-            onClick={() => setActiveTab('archival')}
+            onClick={() => openTab('archival')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'archival'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1119,20 +1157,7 @@ const Admin: React.FC = () => {
             Data Archival
           </button>
           <button
-            onClick={() => setActiveTab('partners')}
-            className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
-              activeTab === 'partners'
-                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:shadow-md active:scale-95'
-            }`}
-          >
-            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            Partners
-          </button>
-          <button
-            onClick={() => setActiveTab('customFields')}
+            onClick={() => openTab('customFields')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
               activeTab === 'customFields'
                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
@@ -1249,7 +1274,30 @@ const Admin: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('audit')}
+                  onClick={() => openTab('partners')}
+                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-xl border border-indigo-200 hover:shadow-md transition-all duration-200 group"
+                >
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform duration-300">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Manage Partner Tenants</p>
+                      <p className="text-sm text-gray-600">Create API partner accounts</p>
+                    </div>
+                  </div>
+                  <svg className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={() => {
+                    openTab('audit');
+                    fetchAuditLogs();
+                  }}
                   className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 hover:shadow-md transition-all duration-200 group"
                 >
                   <div className="flex items-center">

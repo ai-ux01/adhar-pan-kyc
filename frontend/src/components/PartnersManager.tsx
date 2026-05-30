@@ -50,7 +50,7 @@ const PartnersManager: React.FC = () => {
       const res = await api.get('/admin/partners');
       setTenants(res.data.data || []);
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to load partners', 'error');
+      showToast({ type: 'error', message: error.response?.data?.message || 'Failed to load partners', duration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -95,19 +95,19 @@ const PartnersManager: React.FC = () => {
         rateLimitPerMinute: 60
       });
       fetchTenants();
-      showToast('Partner tenant created', 'success');
+      showToast({ type: 'success', message: 'Partner tenant created', duration: 4000 });
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Failed to create partner', 'error');
+      showToast({ type: 'error', message: error.response?.data?.message || 'Failed to create partner', duration: 5000 });
     }
   };
 
   const toggleActive = async (tenant: PartnerTenant) => {
     try {
       await api.patch(`/admin/partners/${tenant.tenantId}`, { isActive: !tenant.isActive });
-      showToast(`Partner ${tenant.isActive ? 'deactivated' : 'activated'}`, 'success');
+      showToast({ type: 'success', message: `Partner ${tenant.isActive ? 'deactivated' : 'activated'}`, duration: 4000 });
       fetchTenants();
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Update failed', 'error');
+      showToast({ type: 'error', message: error.response?.data?.message || 'Update failed', duration: 5000 });
     }
   };
 
@@ -125,9 +125,9 @@ const PartnersManager: React.FC = () => {
           portalPassword: '(unchanged — portal login password not rotated)'
         });
       }
-      showToast('API key rotated', 'success');
+      showToast({ type: 'success', message: 'API key rotated', duration: 4000 });
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Rotate failed', 'error');
+      showToast({ type: 'error', message: error.response?.data?.message || 'Rotate failed', duration: 5000 });
     }
   };
 
@@ -143,18 +143,18 @@ const PartnersManager: React.FC = () => {
         portalEmail: data.portalEmail,
         portalPassword: data.portalPassword
       });
-      showToast('Portal password reset', 'success');
+      showToast({ type: 'success', message: 'Portal password reset', duration: 4000 });
     } catch (error: any) {
-      showToast(error.response?.data?.message || 'Reset failed', 'error');
+      showToast({ type: 'error', message: error.response?.data?.message || 'Reset failed', duration: 5000 });
     }
   };
 
   const copyText = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      showToast(`${label} copied`, 'success');
+      showToast({ type: 'success', message: `${label} copied`, duration: 3000 });
     } catch {
-      showToast('Copy failed', 'error');
+      showToast({ type: 'error', message: 'Copy failed', duration: 4000 });
     }
   };
 

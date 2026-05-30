@@ -10,6 +10,7 @@ import {
   Cog6ToothIcon,
   ChevronDownIcon,
   UserCircleIcon,
+  BuildingOffice2Icon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
 
@@ -98,7 +99,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       name: 'Admin',
       href: '/admin',
       icon: Cog6ToothIcon,
-      current: location.pathname === '/admin',
+      current: location.pathname === '/admin' && !location.pathname.startsWith('/admin/partners'),
+    }, {
+      name: 'Partners',
+      href: '/admin/partners',
+      icon: BuildingOffice2Icon,
+      current: location.pathname === '/admin/partners' || location.search.includes('tab=partners'),
     }] : []),
   ];
 
