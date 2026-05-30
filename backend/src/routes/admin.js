@@ -1461,7 +1461,7 @@ router.get('/settings', protect, authorize('admin'), async (req, res) => {
 // Update user module access (admin only)
 router.patch('/users/:id/module-access', protect, authorize('admin'), async (req, res) => {
   try {
-    const { moduleAccess } = req.body;
+    const { moduleAccess, credits } = req.body;
     
     if (!moduleAccess || !Array.isArray(moduleAccess)) {
       return res.status(400).json({
@@ -1481,6 +1481,13 @@ router.patch('/users/:id/module-access', protect, authorize('admin'), async (req
       });
     }
 
+    if (credits !== undefined && (Number.isNaN(Number(credits)) || Number(credits) < 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'credits must be a non-negative number'
+      });
+    }
+
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({
@@ -1489,11 +1496,14 @@ router.patch('/users/:id/module-access', protect, authorize('admin'), async (req
       });
     }
 
-    // Store old module access for audit
+    // Store old values for audit
     const oldModuleAccess = user.moduleAccess;
+    const oldCredits = user.credits ?? 0;
 
-    // Update module access
     user.moduleAccess = moduleAccess;
+    if (credits !== undefined) {
+      user.credits = Math.max(0, Number(credits));
+    }
     await user.save();
 
     // Log the event
@@ -1506,7 +1516,9 @@ router.patch('/users/:id/module-access', protect, authorize('admin'), async (req
       details: {
         targetUserEmail: user.email,
         oldModuleAccess,
-        newModuleAccess: moduleAccess
+        newModuleAccess: moduleAccess,
+        oldCredits,
+        newCredits: user.credits ?? 0,
       },
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')
@@ -1514,11 +1526,12 @@ router.patch('/users/:id/module-access', protect, authorize('admin'), async (req
 
     res.json({
       success: true,
-      message: 'User module access updated successfully',
+      message: 'User access settings updated successfully',
       data: {
         id: user._id,
         email: user.email,
-        moduleAccess: user.moduleAccess
+        moduleAccess: user.moduleAccess,
+        credits: user.credits ?? 0,
       }
     });
   } catch (error) {

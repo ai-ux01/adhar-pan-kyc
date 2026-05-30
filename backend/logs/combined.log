@@ -87936,3 +87936,33 @@
   service: 'kyc-aadhaar-api',
   timestamp: '2026-05-30 19:49:56'
 }
+{
+  message: 'Archival process scheduled with cron expression: 0 2 * * *',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-05-30 19:58:04'
+}
+{
+  message: 'Health check scheduled with cron expression: 0 * * * *',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-05-30 19:58:04'
+}
+{
+  message: 'Scheduler service initialized successfully',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-05-30 19:58:04'
+}
+{
+  message: 'Server running on port 3002 in development mode',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-05-30 19:58:04'
+}
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-02.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-05-30 19:58:04'
+}

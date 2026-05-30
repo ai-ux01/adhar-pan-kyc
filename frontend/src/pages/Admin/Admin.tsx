@@ -625,26 +625,33 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
   };
 
   const handleManageModuleAccess = (user: User) => {
-    setSelectedUserForModules(user);
+    setSelectedUserForModules({
+      ...user,
+      credits: user.credits ?? 0,
+    });
     setShowModuleAccess(true);
   };
 
-  const handleUpdateModuleAccess = async (userId: string, moduleAccess: string[]) => {
+  const handleUpdateModuleAccess = async (
+    userId: string,
+    moduleAccess: string[],
+    credits: number
+  ) => {
     try {
-      await api.patch(`/admin/users/${userId}/module-access`, { moduleAccess });
+      await api.patch(`/admin/users/${userId}/module-access`, { moduleAccess, credits });
       showToast({
         type: 'success',
-        message: 'User module access updated successfully!',
+        message: 'User access and credits updated successfully!',
         duration: 4000
       });
       setShowModuleAccess(false);
       setSelectedUserForModules(null);
       fetchUsers();
     } catch (error: any) {
-      console.error('Error updating module access:', error);
+      console.error('Error updating user access settings:', error);
       showToast({
         type: 'error',
-        message: error.response?.data?.message || 'Failed to update module access. Please try again.',
+        message: error.response?.data?.message || 'Failed to update user settings. Please try again.',
         duration: 5000
       });
     }
@@ -1557,7 +1564,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                         <button
                           onClick={() => handleManageModuleAccess(user)}
                           className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:shadow-md relative overflow-hidden group"
-                          title="Manage Module Access"
+                          title="Manage Module Access & Credits"
                         >
                           <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
                           <CogIcon className="h-5 w-5 relative z-10 group-hover:rotate-180 transition-transform duration-500 ease-in-out" />
@@ -2889,19 +2896,59 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         </div>
       )}
 
-      {/* Module Access Management Modal */}
+      {/* Module Access & Credits Modal */}
       {showModuleAccess && selectedUserForModules && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Manage Module Access for {selectedUserForModules.name}
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
+          <div className="relative mt-10 w-full max-w-lg shadow-lg rounded-xl bg-white max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-gray-900">
+                User Access & Credits
               </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Module Access</label>
-                  <div className="space-y-2">
+              <p className="text-sm text-gray-500 mt-1">{selectedUserForModules.name} · {selectedUserForModules.email}</p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <label className="block text-sm font-semibold text-emerald-900 mb-2">
+                  Verification Credits
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={selectedUserForModules.credits ?? 0}
+                  onChange={(e) =>
+                    setSelectedUserForModules({
+                      ...selectedUserForModules,
+                      credits: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  className="block w-full border border-emerald-300 rounded-lg px-3 py-2 text-lg font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="mt-2 text-xs text-emerald-800">
+                  Each verification attempt uses 1 credit (success or failure). Set to 0 to block verifications.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[10, 50, 100, 500].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() =>
+                        setSelectedUserForModules({
+                          ...selectedUserForModules,
+                          credits: (selectedUserForModules.credits ?? 0) + amount,
+                        })
+                      }
+                      className="px-3 py-1 text-xs font-medium rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                    >
+                      +{amount}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-3">Module Access</label>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                     <label className="flex items-center">
                       <input
                         type="checkbox"
@@ -3009,27 +3056,33 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                       />
                       <span className="ml-2 text-sm text-gray-700">QR Code</span>
                     </label>
-                  </div>
                 </div>
-                
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModuleAccess(false);
-                      setSelectedUserForModules(null);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleUpdateModuleAccess(selectedUserForModules._id, selectedUserForModules.moduleAccess)}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-                  >
-                    Update Access
-                  </button>
-                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleAccess(false);
+                    setSelectedUserForModules(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleUpdateModuleAccess(
+                      selectedUserForModules._id,
+                      selectedUserForModules.moduleAccess,
+                      selectedUserForModules.credits ?? 0
+                    )
+                  }
+                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+                >
+                  Save Access & Credits
+                </button>
               </div>
             </div>
           </div>
