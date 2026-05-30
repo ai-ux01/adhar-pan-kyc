@@ -1,5 +1,6 @@
 const TenantAadhaarVerification = require('../models/TenantAadhaarVerification');
 const { decryptTenantVerificationRecord } = require('../models/TenantAadhaarVerification');
+const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
 const TenantOtpSession = require('../models/TenantOtpSession');
 const {
   sendAadhaarOTP,
@@ -243,6 +244,57 @@ async function partnerVerifyOtp(tenant, body) {
   };
 }
 
+function formatVerificationListItem(record) {
+  const full = formatVerificationResponse(record, {
+    cached: record.source === 'tenant_cache',
+    source: record.source
+  });
+  const { photo, ...rest } = full;
+  return { ...rest, hasPhoto: Boolean(photo) };
+}
+
+async function listTenantVerifications(tenant, query = {}) {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+  const skip = (page - 1) * limit;
+
+  const match = { tenantId: tenant._id };
+
+  if (query.status && query.status !== 'all') {
+    match.status = String(query.status).trim();
+  }
+
+  if (query.externalReferenceId) {
+    match.externalReferenceId = new RegExp(String(query.externalReferenceId).trim(), 'i');
+  }
+
+  applyCreatedAtDateFilter(match, {
+    dateFilter: query.dateFilter,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo
+  });
+
+  const [records, total] = await Promise.all([
+    TenantAadhaarVerification.find(match)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    TenantAadhaarVerification.countDocuments(match)
+  ]);
+
+  return {
+    success: true,
+    data: records.map((r) => formatVerificationListItem(r)),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1
+    }
+  };
+}
+
 async function getVerificationById(tenant, verificationId) {
   const record = await TenantAadhaarVerification.findOne({
     _id: verificationId,
@@ -269,5 +321,6 @@ module.exports = {
   partnerSendOtp,
   partnerVerifyOtp,
   getVerificationById,
+  listTenantVerifications,
   formatVerificationResponse
 };

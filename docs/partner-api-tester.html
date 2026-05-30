@@ -100,6 +100,25 @@
       padding: 2px 10px; border-radius: 999px; margin-left: 8px;
     }
     .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+    select {
+      padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--code); color: var(--text); font-size: 0.85rem;
+    }
+    .records-table-wrap {
+      overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 12px;
+    }
+    table.records { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    table.records th, table.records td {
+      padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    table.records th { background: #0f172a; color: var(--muted); font-weight: 600; }
+    table.records tr:hover td { background: rgba(56, 189, 248, 0.08); cursor: pointer; }
+    table.records tr:last-child td { border-bottom: none; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
+    .pill-verified { background: #065f46; color: #6ee7b7; }
+    .pill-other { background: #334155; color: #cbd5e1; }
+    .records-meta { font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+    .inline-field { width: auto; margin: 0; min-width: 0; }
   </style>
 </head>
 <body>
@@ -117,6 +136,7 @@
         <div class="flow-step" data-step="2"><span class="num">2</span> Send OTP</div>
         <div class="flow-step" data-step="3"><span class="num">3</span> Verify OTP</div>
         <div class="flow-step" data-step="4"><span class="num">4</span> Get record</div>
+        <div class="flow-step" data-step="5"><span class="num">5</span> List all</div>
       </div>
       <div class="hint-banner" id="stepHint">Set API root + API key, then run the complete flow.</div>
     </div>
@@ -188,6 +208,67 @@
     </div>
 
     <div class="card" style="margin-top: 16px;">
+      <h2>5. Stored verification records</h2>
+      <p class="hint">GET /api/v1/partner/aadhaar/verifications — all records for your tenant (paginated).</p>
+      <div class="row" style="align-items: flex-end;">
+        <div>
+          <label for="listPage">Page</label>
+          <input id="listPage" class="inline-field mono" type="number" min="1" value="1" style="width:70px;" />
+        </div>
+        <div>
+          <label for="listLimit">Limit</label>
+          <input id="listLimit" class="inline-field mono" type="number" min="1" max="100" value="20" style="width:70px;" />
+        </div>
+        <div>
+          <label for="listStatus">Status</label>
+          <select id="listStatus">
+            <option value="all">All</option>
+            <option value="verified">verified</option>
+            <option value="invalid">invalid</option>
+            <option value="rejected">rejected</option>
+            <option value="pending">pending</option>
+            <option value="error">error</option>
+          </select>
+        </div>
+        <div>
+          <label for="listDateFilter">Period</label>
+          <select id="listDateFilter">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 days</option>
+            <option value="month">Last 30 days</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:140px;">
+          <label for="listRef">Reference search</label>
+          <input id="listRef" class="inline-field" type="text" placeholder="ORDER-123" style="width:100%; margin:0;" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button type="button" class="btn-primary" id="btnListVerifications">Load records</button>
+        <button type="button" class="btn-secondary" id="btnListPrev">← Prev page</button>
+        <button type="button" class="btn-secondary" id="btnListNext">Next page →</button>
+      </div>
+      <p class="records-meta" id="recordsMeta">No records loaded yet.</p>
+      <div class="records-table-wrap" id="recordsTableWrap" style="display:none;">
+        <table class="records">
+          <thead>
+            <tr>
+              <th>Masked Aadhaar</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Reference</th>
+              <th>Verified at</th>
+              <th>ID</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTableBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:8px;">Click a row to fill verificationId and load full record (GET).</p>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
       <h2>Response</h2>
       <div class="status-line">
         <span id="httpStatus">—</span>
@@ -233,6 +314,7 @@
     const STORAGE_KEY = 'partnerApiTesterConfig';
     let busy = false;
     let currentStep = 1;
+    let lastListPagination = null;
 
     const el = (id) => document.getElementById(id);
 
@@ -241,8 +323,9 @@
     function setBusy(on) {
       busy = on;
       el('loadingIndicator').style.display = on ? 'inline' : 'none';
-      ['btnRunFlow','btnVerifyAndGet','btnEntry','btnSendOtp','btnVerifyOtp','btnGetVerification','btnTestKey'].forEach(id => {
-        el(id).disabled = on;
+      ['btnRunFlow','btnVerifyAndGet','btnEntry','btnSendOtp','btnVerifyOtp','btnGetVerification','btnTestKey','btnListVerifications','btnListPrev','btnListNext'].forEach(id => {
+        const node = el(id);
+        if (node) node.disabled = on;
       });
     }
 
@@ -315,8 +398,78 @@
 
     function applyResponseFields(data) {
       if (!data || !data.data) return;
-      if (data.data.transactionId != null) el('transactionId').value = String(data.data.transactionId);
-      if (data.data.verificationId != null) el('verificationId').value = String(data.data.verificationId);
+      const d = data.data;
+      if (d.transactionId != null) el('transactionId').value = String(d.transactionId);
+      if (d.verificationId != null) el('verificationId').value = String(d.verificationId);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString(); } catch { return String(iso); }
+    }
+
+    function renderRecordsTable(records) {
+      const tbody = el('recordsTableBody');
+      const wrap = el('recordsTableWrap');
+      tbody.innerHTML = '';
+      if (!records || !records.length) {
+        wrap.style.display = 'none';
+        el('recordsMeta').textContent = 'No records on this page.';
+        return;
+      }
+      wrap.style.display = 'block';
+      records.forEach((r) => {
+        const tr = document.createElement('tr');
+        const status = r.status || '—';
+        const pillClass = status === 'verified' ? 'pill-verified' : 'pill-other';
+        tr.innerHTML =
+          '<td class="mono">' + (r.aadhaarMasked || '—') + '</td>' +
+          '<td>' + (r.name || '—') + '</td>' +
+          '<td><span class="pill ' + pillClass + '">' + status + '</span></td>' +
+          '<td>' + (r.externalReferenceId || '—') + '</td>' +
+          '<td>' + formatDate(r.verifiedAt) + '</td>' +
+          '<td class="mono" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="' + (r.verificationId || '') + '">' + (r.verificationId || '—') + '</td>';
+        tr.addEventListener('click', () => {
+          if (r.verificationId) {
+            el('verificationId').value = String(r.verificationId);
+            setHint('Selected record ' + r.verificationId + ' — click GET record or Verify section.');
+          }
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function buildListQuery(pageOverride) {
+      const page = pageOverride != null ? pageOverride : (el('listPage').value || '1');
+      const limit = el('listLimit').value || '20';
+      const status = el('listStatus').value;
+      const dateFilter = el('listDateFilter').value;
+      const ref = el('listRef').value.trim();
+      let qs = '?page=' + encodeURIComponent(page) + '&limit=' + encodeURIComponent(limit);
+      if (status && status !== 'all') qs += '&status=' + encodeURIComponent(status);
+      if (dateFilter && dateFilter !== 'all') qs += '&dateFilter=' + encodeURIComponent(dateFilter);
+      if (ref) qs += '&externalReferenceId=' + encodeURIComponent(ref);
+      return qs;
+    }
+
+    async function doListVerifications(pageOverride) {
+      setFlowStep(5);
+      setHint('Loading tenant verification records…');
+      const qs = buildListQuery(pageOverride);
+      const { ok, data } = await partnerGet('/aadhaar/verifications' + qs);
+      if (!ok) throw new Error(data.message || 'List failed');
+      lastListPagination = data.pagination || null;
+      if (lastListPagination) {
+        el('listPage').value = String(lastListPagination.page);
+        el('recordsMeta').textContent =
+          'Showing page ' + lastListPagination.page + ' of ' + lastListPagination.totalPages +
+          ' · ' + lastListPagination.total + ' total record(s)';
+      } else {
+        el('recordsMeta').textContent = (data.data?.length || 0) + ' record(s) returned.';
+      }
+      renderRecordsTable(data.data || []);
+      setHint('Records loaded. Click a row to select verificationId.');
+      return data;
     }
 
     function showResponse(data, status, ms) {
@@ -456,6 +609,23 @@
       saveConfig({ tenantName: t.name || t.tenantId });
       setHint('API key valid for tenant "' + t.tenantId + '". Ready to test.');
       setFlowStep(1);
+    }));
+
+    el('btnListVerifications').addEventListener('click', () => withGuard(() => doListVerifications()));
+
+    el('btnListPrev').addEventListener('click', () => withGuard(async () => {
+      const page = Math.max(1, (parseInt(el('listPage').value, 10) || 1) - 1);
+      await doListVerifications(page);
+    }));
+
+    el('btnListNext').addEventListener('click', () => withGuard(async () => {
+      const cur = parseInt(el('listPage').value, 10) || 1;
+      const max = lastListPagination?.totalPages || cur + 1;
+      if (cur >= max) {
+        setHint('Already on last page.');
+        return;
+      }
+      await doListVerifications(cur + 1);
     }));
 
     el('btnEntry').addEventListener('click', () => withGuard(doEntry));

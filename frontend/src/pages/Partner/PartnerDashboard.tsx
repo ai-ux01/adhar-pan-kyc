@@ -26,6 +26,10 @@ const PartnerDashboard: React.FC = () => {
   const [lastStatus, setLastStatus] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState<FlowStep>(1);
   const [stepHint, setStepHint] = useState('Step 1: Check if Aadhaar is already verified (cache).');
+  const [listPage, setListPage] = useState(1);
+  const [listStatus, setListStatus] = useState('all');
+  const [records, setRecords] = useState<Array<Record<string, unknown>>>([]);
+  const [pagination, setPagination] = useState<{ page: number; total: number; totalPages: number } | null>(null);
 
   if (!loading && !isAuthenticated) {
     return <Navigate to="/partner/login" replace />;
@@ -193,6 +197,26 @@ const PartnerDashboard: React.FC = () => {
     }
   };
 
+  const handleListRecords = async (page = listPage) => {
+    setApiLoading(true);
+    try {
+      const params: Record<string, string | number> = { page, limit: 20 };
+      if (listStatus !== 'all') params.status = listStatus;
+      const res = await partnerApi.get('/v1/partner/aadhaar/verifications', { params });
+      setRecords(res.data.data || []);
+      setPagination(res.data.pagination || null);
+      setListPage(page);
+      setLastResponse(res.data);
+      setLastStatus(res.status);
+      setStepHint(`Loaded ${res.data.pagination?.total ?? 0} verification record(s) for your tenant.`);
+    } catch (error: any) {
+      setLastResponse(error.response?.data || { message: error.message });
+      setLastStatus(error.response?.status || 0);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
   const stepIndex = (s: FlowStep) => (s === 'done' ? 4 : s);
 
   return (
@@ -337,6 +361,87 @@ const PartnerDashboard: React.FC = () => {
               4. Get record
             </button>
           </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <h2 className="font-semibold text-slate-900">Stored verifications</h2>
+          <p className="text-sm text-slate-600">All Aadhaar verification records saved for your tenant.</p>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div>
+              <label className="text-xs text-slate-500">Status</label>
+              <select
+                value={listStatus}
+                onChange={(e) => setListStatus(e.target.value)}
+                className="block border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="all">All</option>
+                <option value="verified">Verified</option>
+                <option value="invalid">Invalid</option>
+                <option value="rejected">Rejected</option>
+                <option value="pending">Pending</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              disabled={apiLoading}
+              onClick={() => handleListRecords(1)}
+              className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            >
+              Load records
+            </button>
+            {pagination && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <button
+                  type="button"
+                  disabled={listPage <= 1 || apiLoading}
+                  onClick={() => handleListRecords(listPage - 1)}
+                  className="px-2 py-1 border rounded disabled:opacity-40"
+                >
+                  Prev
+                </button>
+                <span>Page {pagination.page} / {pagination.totalPages} ({pagination.total} total)</span>
+                <button
+                  type="button"
+                  disabled={listPage >= pagination.totalPages || apiLoading}
+                  onClick={() => handleListRecords(listPage + 1)}
+                  className="px-2 py-1 border rounded disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+          {records.length > 0 && (
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Masked Aadhaar</th>
+                    <th className="px-3 py-2 text-left">Name</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Reference</th>
+                    <th className="px-3 py-2 text-left">Verified</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((r) => (
+                    <tr key={String(r.verificationId)} className="border-t border-slate-100 hover:bg-slate-50">
+                      <td className="px-3 py-2 font-mono text-xs">{String(r.aadhaarMasked || '—')}</td>
+                      <td className="px-3 py-2">{String(r.name || '—')}</td>
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-0.5 rounded text-xs ${r.status === 'verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100'}`}>
+                          {String(r.status)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs">{String(r.externalReferenceId || '—')}</td>
+                      <td className="px-3 py-2 text-xs">{r.verifiedAt ? new Date(String(r.verifiedAt)).toLocaleString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="bg-slate-900 rounded-xl p-5 text-slate-100">

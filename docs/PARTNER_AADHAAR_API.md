@@ -14,6 +14,7 @@ Third-party integration for Aadhaar OTP KYC with **tenant isolation**, **API key
 | 1 | `POST /aadhaar/entry` | Check if Aadhaar is already verified for your tenant |
 | 2 | `POST /aadhaar/otp/send` | Send OTP (skipped if cached verified record exists) |
 | 3 | `POST /aadhaar/otp/verify` | Verify OTP and store KYC (Sandbox only when not cached) |
+| — | `GET /aadhaar/verifications` | List all verification records for your tenant |
 | — | `GET /aadhaar/verification/:id` | Fetch a verification record by ID |
 
 ### Cache behaviour
@@ -255,7 +256,57 @@ After a failed verify, call **otp/send** again for a new OTP session.
 
 ---
 
-## 4. Get verification by ID
+## 4. List all verifications (tenant records)
+
+```http
+GET /api/v1/partner/aadhaar/verifications?page=1&limit=20
+Authorization: Bearer <partner_api_key>
+```
+
+Returns **only your tenant's** stored verification attempts (verified, invalid, etc.).
+
+### Query parameters
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `page` | `1` | Page number |
+| `limit` | `20` | Max `100` per page |
+| `status` | all | `verified`, `invalid`, `rejected`, `pending`, `error` |
+| `externalReferenceId` | — | Partial match on your reference |
+| `dateFilter` | `all` | `today`, `week`, `month` |
+| `dateFrom` / `dateTo` | — | Custom range `YYYY-MM-DD` |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "verificationId": "665a1b2c3d4e5f678901234",
+      "tenantId": "acme_kyc",
+      "aadhaarMasked": "XXXX-XXXX-0410",
+      "name": "Ashul Kumar",
+      "status": "verified",
+      "verifiedAt": "2026-05-23T10:00:00.000Z",
+      "externalReferenceId": "ORDER-123",
+      "hasPhoto": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 45,
+    "totalPages": 3
+  }
+}
+```
+
+List items omit base64 `photo` (use GET by ID for full record including photo).
+
+---
+
+## 5. Get verification by ID
 
 ```http
 GET /api/v1/partner/aadhaar/verification/{verificationId}
@@ -388,6 +439,10 @@ curl -s -X POST "$BASE/api/v1/partner/aadhaar/otp/verify" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{"aadhaarNumber":"697798350410","otp":"123456","transactionId":"76530688"}'
+
+# List all verification records for your tenant
+curl -s "$BASE/api/v1/partner/aadhaar/verifications?page=1&limit=20&status=verified" \
+  -H "Authorization: Bearer $KEY"
 ```
 
 ---

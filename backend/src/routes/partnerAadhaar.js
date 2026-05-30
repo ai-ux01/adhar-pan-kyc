@@ -6,7 +6,8 @@ const {
   partnerAadhaarEntry,
   partnerSendOtp,
   partnerVerifyOtp,
-  getVerificationById
+  getVerificationById,
+  listTenantVerifications
 } = require('../services/partnerAadhaarService');
 const { logEvent } = require('../services/auditService');
 const logger = require('../utils/logger');
@@ -186,6 +187,27 @@ router.post('/aadhaar/otp/verify', async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Failed to verify OTP'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/partner/aadhaar/verifications
+ * List verification records for this tenant (paginated).
+ */
+router.get('/aadhaar/verifications', async (req, res) => {
+  try {
+    const result = await listTenantVerifications(req.tenant, req.query);
+    await auditPartnerCall(req, 'partner_aadhaar_list', {
+      count: result.data?.length,
+      page: result.pagination?.page
+    });
+    return res.json(result);
+  } catch (error) {
+    logger.error('Partner list verifications error:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to list verifications'
     });
   }
 });

@@ -5,6 +5,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Tenant = require('../models/Tenant');
 const { generatePartnerApiKey } = require('../utils/partnerApiKey');
+const { listTenantVerifications } = require('../services/partnerAadhaarService');
 const logger = require('../utils/logger');
 
 function generatePortalPassword() {
@@ -216,6 +217,39 @@ router.post('/:tenantId/rotate-key', protect, authorize('admin'), async (req, re
     res.status(500).json({
       success: false,
       message: 'Failed to rotate API key'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/partners/:tenantId/verifications
+ */
+router.get('/:tenantId/verifications', protect, authorize('admin'), async (req, res) => {
+  try {
+    const tenant = await Tenant.findOne({ tenantId: req.params.tenantId.toLowerCase() });
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Partner tenant not found'
+      });
+    }
+
+    const result = await listTenantVerifications(
+      {
+        _id: tenant._id,
+        tenantId: tenant.tenantId,
+        name: tenant.name,
+        rateLimitPerMinute: tenant.rateLimitPerMinute
+      },
+      req.query
+    );
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Admin list tenant verifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to list tenant verifications'
     });
   }
 });
