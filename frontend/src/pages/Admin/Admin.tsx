@@ -28,6 +28,7 @@ interface User {
   role: string;
   moduleAccess: string[];
   status: string;
+  credits?: number;
   branding?: {
     logo?: {
       filename: string;
@@ -207,7 +208,8 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
     role: 'user',
     moduleAccess: [] as string[],
     status: 'active',
-    enabledCustomFields: [] as string[] // Array of custom field IDs
+    enabledCustomFields: [] as string[],
+    credits: 0,
   });
 
   useEffect(() => {
@@ -543,7 +545,8 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         role: 'user',
         moduleAccess: [],
         status: 'active',
-        enabledCustomFields: []
+        enabledCustomFields: [],
+        credits: 0,
       });
       fetchUsers();
     } catch (error: any) {
@@ -581,7 +584,8 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         role: 'user',
         moduleAccess: [],
         status: 'active',
-        enabledCustomFields: []
+        enabledCustomFields: [],
+        credits: 0,
       });
       fetchUsers();
     } catch (error: any) {
@@ -917,7 +921,8 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
       role: user.role,
       moduleAccess: user.moduleAccess,
       status: user.status,
-      enabledCustomFields: user.enabledCustomFields || []
+      enabledCustomFields: user.enabledCustomFields || [],
+      credits: user.credits ?? 0,
     });
   };
 
@@ -1522,6 +1527,9 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                                 {user.status}
                               </span>
                             </div>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                              {user.credits ?? 0} credits
+                            </span>
                           </div>
                           <div className="flex items-center mt-3">
                             <span className="text-xs text-gray-500 mr-2">Modules:</span>
@@ -2741,7 +2749,8 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     role: 'user',
                     moduleAccess: [],
                     status: 'active',
-                    enabledCustomFields: []
+                    enabledCustomFields: [],
+                    credits: 0,
                   });
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -2810,6 +2819,18 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     <option value="active">Active</option>
                     <option value="suspended">Suspended</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Verification Credits</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.credits}
+                    onChange={(e) => setFormData({ ...formData, credits: Math.max(0, Number(e.target.value) || 0) })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Each successful verification uses 1 credit.</p>
                 </div>
                 
                 {/* Custom Fields Access Control */}

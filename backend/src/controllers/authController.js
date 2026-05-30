@@ -58,6 +58,7 @@ const register = async (userData) => {
       moduleAccess: user.moduleAccess,
       isEmailVerified: user.isEmailVerified,
       branding: user.branding,
+      credits: user.credits ?? 0,
     },
   };
 };
@@ -119,6 +120,7 @@ const login = async (loginData) => {
       preferences: user.preferences,
       customFields: user.customFields,
       enabledCustomFields: user.enabledCustomFields,
+      credits: user.credits ?? 0,
     },
   };
 };
@@ -149,6 +151,7 @@ const getCurrentUser = async (userId) => {
     enabledCustomFields: user.enabledCustomFields,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin,
+    credits: user.credits ?? 0,
   };
 };
 

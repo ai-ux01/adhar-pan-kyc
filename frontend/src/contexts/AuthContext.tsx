@@ -41,6 +41,7 @@ interface User {
   };
   customFields?: Record<string, any>;
   enabledCustomFields?: string[]; // Array of custom field IDs that this user has access to
+  credits?: number;
   createdAt: string;
   lastLogin?: string;
 }
@@ -447,6 +448,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error.response?.status === 429) {
           console.log('🔍 Rate limit exceeded, logging out to prevent further requests');
           logout();
+          return Promise.reject(error);
+        }
+
+        if (error.response?.status === 402) {
+          updateUser({ credits: 0 });
+          window.dispatchEvent(new CustomEvent('credits-exhausted'));
           return Promise.reject(error);
         }
 

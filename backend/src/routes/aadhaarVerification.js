@@ -13,6 +13,7 @@ const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadh
 const { getAllowedOrigin } = require('../utils/corsHelper');
 const CustomField = require('../models/CustomField');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
+const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 /** Custom fields applicable to Aadhaar verification for this viewer (admin = all; others = enabledCustomFields only). */
 async function getVerificationFieldDefinitionsForUser(userId, { forKeysEndpoint = false } = {}) {
@@ -396,6 +397,12 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    try {
+      await ensureCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     const defs = await getVerificationFieldDefinitionsForUser(req.user.id);
     const safeDynamicFields = filterDynamicFieldsArray(dynamicFields, defs);
 
@@ -460,6 +467,12 @@ router.post('/verify-otp', protect, async (req, res) => {
         success: false,
         message: 'Invalid OTP format. Must be 6 digits.'
       });
+    }
+
+    try {
+      await ensureCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
     }
 
     // Verify OTP using Sandbox API
@@ -537,6 +550,12 @@ router.post('/verify-otp', protect, async (req, res) => {
 
     await verificationRecord.save();
 
+    try {
+      await deductCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     // Log the verification event
     await logAadhaarVerificationEvent('otp_verification_completed', req.user.id, {
       recordId: verificationRecord._id,
@@ -562,6 +581,9 @@ router.post('/verify-otp', protect, async (req, res) => {
     });
 
   } catch (error) {
+    if (error.statusCode === 402) {
+      return sendCreditsError(res, error);
+    }
     logger.error('Error verifying OTP:', error);
     res.status(500).json({
       success: false,

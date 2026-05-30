@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CreditsProvider, useCredits } from './contexts/CreditsContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 
@@ -94,6 +95,41 @@ const ModuleRoute: React.FC<{
   return <>{children}</>;
 };
 
+const CreditModuleRoute: React.FC<{
+  children: React.ReactNode;
+  module: string;
+}> = ({ children, module }) => {
+  const { user, loading, isAuthenticated } = useAuth();
+  const { showCreditsExhausted } = useCredits();
+  const navigate = useNavigate();
+
+  const blocked =
+    !loading &&
+    !!user &&
+    user.role !== 'admin' &&
+    (user.credits ?? 0) <= 0;
+
+  React.useEffect(() => {
+    if (!blocked) return;
+    showCreditsExhausted();
+    navigate('/dashboard', { replace: true });
+  }, [blocked, showCreditsExhausted, navigate]);
+
+  if (loading || !isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (blocked) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <ModuleRoute module={module}>{children}</ModuleRoute>;
+};
+
 const PartnerProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { loading, isAuthenticated } = usePartnerAuth();
 
@@ -158,11 +194,11 @@ const AppContent: React.FC = () => {
           } />
 
           <Route path="/pan-kyc" element={
-            <ModuleRoute module="pan-kyc">
+            <CreditModuleRoute module="pan-kyc">
               <Layout>
                 <PanKyc />
               </Layout>
-            </ModuleRoute>
+            </CreditModuleRoute>
           } />
 
           <Route path="/pan-kyc-records" element={
@@ -174,11 +210,11 @@ const AppContent: React.FC = () => {
           } />
 
           <Route path="/aadhaar-pan" element={
-            <ModuleRoute module="aadhaar-pan">
+            <CreditModuleRoute module="aadhaar-pan">
               <Layout>
                 <AadhaarPan />
               </Layout>
-            </ModuleRoute>
+            </CreditModuleRoute>
           } />
 
           <Route path="/aadhaar-pan-records" element={
@@ -190,11 +226,11 @@ const AppContent: React.FC = () => {
           } />
 
           <Route path="/aadhaar-verification" element={
-            <ModuleRoute module="aadhaar-verification">
+            <CreditModuleRoute module="aadhaar-verification">
               <Layout>
                 <AadhaarVerification />
               </Layout>
-            </ModuleRoute>
+            </CreditModuleRoute>
           } />
 
           <Route path="/aadhaar-verification-records" element={
@@ -245,11 +281,13 @@ const App: React.FC = () => {
     <Router>
       <ThemeProvider>
         <AuthProvider>
+          <CreditsProvider>
           <PartnerAuthProvider>
             <ToastProvider>
               <AppContent />
             </ToastProvider>
           </PartnerAuthProvider>
+          </CreditsProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

@@ -134,7 +134,7 @@ router.get('/users/:id', protect, authorize('admin'), async (req, res) => {
 // Create new user (admin only)
 router.post('/users', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, password, role, moduleAccess, status, enabledCustomFields } = req.body;
+    const { name, email, password, role, moduleAccess, status, enabledCustomFields, credits } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -152,7 +152,8 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
       role: role || 'user',
       moduleAccess: moduleAccess || [],
       status: status || 'active',
-      enabledCustomFields: enabledCustomFields || []
+      enabledCustomFields: enabledCustomFields || [],
+      credits: credits != null ? Math.max(0, Number(credits)) : 0,
     });
 
     await user.save();
@@ -182,7 +183,8 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
         email: user.email,
         role: user.role,
         moduleAccess: user.moduleAccess,
-        status: user.status
+        status: user.status,
+        credits: user.credits ?? 0,
       }
     });
   } catch (error) {
@@ -197,7 +199,7 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, role, moduleAccess, status, enabledCustomFields } = req.body;
+    const { name, email, role, moduleAccess, status, enabledCustomFields, credits } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -236,6 +238,9 @@ router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
     if (enabledCustomFields !== undefined) {
       user.enabledCustomFields = enabledCustomFields;
     }
+    if (credits !== undefined) {
+      user.credits = Math.max(0, Number(credits));
+    }
 
     await user.save();
 
@@ -269,7 +274,8 @@ router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
         email: user.email,
         role: user.role,
         moduleAccess: user.moduleAccess,
-        status: user.status
+        status: user.status,
+        credits: user.credits ?? 0,
       }
     });
   } catch (error) {

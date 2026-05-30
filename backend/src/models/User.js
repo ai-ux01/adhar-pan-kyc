@@ -81,6 +81,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     select: false, // Don't return this by default
   },
+  credits: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
   loginAttempts: {
     type: Number,
     default: 0,

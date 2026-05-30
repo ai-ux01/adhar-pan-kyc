@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCredits } from '../../contexts/CreditsContext';
 import { getUserLogoUrl } from '../../utils/userLogo';
 import {
   Bars3Icon,
@@ -12,6 +13,7 @@ import {
   UserCircleIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline';
 
 interface LayoutProps {
@@ -22,6 +24,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const { user, logout, refreshUserData } = useAuth();
+  const { guardCredits } = useCredits();
   const location = useLocation();
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -115,6 +118,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return true;
   });
 
+  const userCredits = user?.credits ?? 0;
+  const isRegularUser = user?.role !== 'admin';
+
+  const handleModuleNavClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    item: (typeof navigation)[number]
+  ) => {
+    if (!isRegularUser || !item.module) return;
+    if (userCredits > 0) return;
+    event.preventDefault();
+    guardCredits(userCredits);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       {/* Sidebar for mobile */}
@@ -176,7 +192,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       ? 'bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20 text-emerald-700 shadow-xl border border-emerald-200/50'
                       : 'text-slate-600 hover:bg-white/80 hover:text-slate-800 hover:shadow-lg'
                   }`}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={(event) => {
+                    handleModuleNavClick(event, item);
+                    if (!event.defaultPrevented) {
+                      setSidebarOpen(false);
+                    }
+                  }}
                 >
                   <div className={`p-2.5 rounded-xl mr-3 transition-all duration-300 ${
                     item.current 
@@ -304,6 +325,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       ? 'bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20 text-emerald-700 shadow-xl border border-emerald-200/50'
                       : 'text-slate-600 hover:bg-white/80 hover:text-slate-800 hover:shadow-lg'
                   }`}
+                  onClick={(event) => handleModuleNavClick(event, item)}
                 >
                   <div className={`p-2.5 rounded-xl mr-3 transition-all duration-300 ${
                     item.current 
@@ -341,6 +363,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
               <div className="flex flex-1"></div>
               <div className="flex items-center gap-x-4 lg:gap-x-6">
+
+                {isRegularUser && (
+                  <div
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold shadow-sm border ${
+                      userCredits > 0
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}
+                    title="Verification credits remaining"
+                  >
+                    <CreditCardIcon className="h-4 w-4" />
+                    <span>Credits: {userCredits}</span>
+                  </div>
+                )}
 
                 {/* Enhanced Profile dropdown */}
                 <div className="relative overflow-visible" ref={profileDropdownRef}>

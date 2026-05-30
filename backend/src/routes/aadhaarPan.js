@@ -12,6 +12,7 @@ const logger = require('../utils/logger');
 const axios = require('axios');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
+const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
 
@@ -921,6 +922,12 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    try {
+      await ensureCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     // Create a temporary record for verification
     const tempRecord = new AadhaarPan({
       userId: req.user.id,
@@ -952,6 +959,12 @@ router.post('/verify-single', protect, async (req, res) => {
 
     await tempRecord.save();
 
+    try {
+      await deductCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     // Log verification event
     await logAadhaarPanEvent('single_linking_verified', req.user.id, {
       aadhaarNumber: tempRecord.aadhaarNumber,
@@ -980,6 +993,9 @@ router.post('/verify-single', protect, async (req, res) => {
     });
 
   } catch (error) {
+    if (error.statusCode === 402) {
+      return sendCreditsError(res, error);
+    }
     logger.error('Error in single Aadhaar-PAN linking verification:', error);
     res.status(500).json({
       success: false,
@@ -1184,6 +1200,18 @@ router.post('/verify', protect, async (req, res) => {
             continue;
           }
 
+          try {
+            await ensureCredits(req.user.id, 1);
+          } catch (creditError) {
+            results.push({
+              recordId,
+              status: 'error',
+              error: creditError.message,
+              code: creditError.code,
+            });
+            break;
+          }
+
           // Decrypt the record data
           const decryptedRecord = record.decryptData();
           
@@ -1203,6 +1231,18 @@ router.post('/verify', protect, async (req, res) => {
           record.processedAt = new Date();
 
           await record.save();
+
+          try {
+            await deductCredits(req.user.id, 1);
+          } catch (creditError) {
+            results.push({
+              recordId,
+              status: 'error',
+              error: creditError.message,
+              code: creditError.code,
+            });
+            break;
+          }
 
           // Log verification event
           await logAadhaarPanEvent('record_verified', req.user.id, {

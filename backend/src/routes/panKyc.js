@@ -12,6 +12,7 @@ const logger = require('../utils/logger');
 const { verifyPAN } = require('../services/panVerificationService');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
+const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 // Helper function to convert Excel serial number to date string
 function excelSerialToDate(serial) {
@@ -597,6 +598,18 @@ router.post('/verify', protect, async (req, res) => {
             continue;
           }
 
+          try {
+            await ensureCredits(req.user.id, 1);
+          } catch (creditError) {
+            results.push({
+              recordId,
+              status: 'error',
+              error: creditError.message,
+              code: creditError.code,
+            });
+            break;
+          }
+
           // Use real Sandbox API for verification
           const startTime = Date.now();
           
@@ -628,6 +641,12 @@ router.post('/verify', protect, async (req, res) => {
           };
           
           await record.save();
+
+          try {
+            await deductCredits(req.user.id, 1);
+          } catch (creditError) {
+            return sendCreditsError(res, creditError);
+          }
           
           results.push({
             recordId: record._id,
@@ -784,6 +803,12 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    try {
+      await ensureCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     // Create a temporary record for verification
     const tempRecord = new PanKyc({
       userId: req.user.id,
@@ -817,6 +842,12 @@ router.post('/verify-single', protect, async (req, res) => {
     tempRecord.processingTime = Date.now() - startTime;
     
     await tempRecord.save();
+
+    try {
+      await deductCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
 
     // Decrypt the data before sending response
     let decryptedRecord;
@@ -860,6 +891,9 @@ router.post('/verify-single', protect, async (req, res) => {
     });
 
   } catch (error) {
+    if (error.statusCode === 402) {
+      return sendCreditsError(res, error);
+    }
     logger.error('Error in single KYC verification:', error);
     res.status(500).json({
       success: false,

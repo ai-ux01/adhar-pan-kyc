@@ -137,6 +137,16 @@ api.interceptors.response.use(
   }
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 402) {
+      window.dispatchEvent(new CustomEvent('credits-exhausted'));
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Note: Response interceptor for 401 handling is managed in AuthContext.tsx
 // to avoid conflicts and ensure proper token refresh flow
 
