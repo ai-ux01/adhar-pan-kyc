@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import CustomFieldsManager from '../../components/CustomFieldsManager';
+import PartnersManager from '../../components/PartnersManager';
 import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { getUserLogoUrl } from '../../utils/userLogo';
 import { 
@@ -1027,7 +1028,7 @@ const Admin: React.FC = () => {
 
       {/* Enhanced Tab Navigation */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2">
-        <nav className="flex space-x-2">
+        <nav className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
@@ -1116,6 +1117,19 @@ const Admin: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
             Data Archival
+          </button>
+          <button
+            onClick={() => setActiveTab('partners')}
+            className={`flex items-center px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
+              activeTab === 'partners'
+                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg ring-2 ring-purple-200'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 hover:shadow-md active:scale-95'
+            }`}
+          >
+            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Partners
           </button>
           <button
             onClick={() => setActiveTab('customFields')}
@@ -3402,6 +3416,11 @@ const Admin: React.FC = () => {
       {/* Custom Fields Tab */}
       {activeTab === 'customFields' && (
         <CustomFieldsManager />
+      )}
+
+      {/* Partners Tab */}
+      {activeTab === 'partners' && (
+        <PartnersManager />
       )}
     </div>
   );

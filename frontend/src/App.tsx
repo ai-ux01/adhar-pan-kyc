@@ -21,6 +21,9 @@ import AadhaarVerificationRecords from './pages/AadhaarVerification/AadhaarVerif
 import QrVerification from './pages/AadhaarVerification/QrVerification';
 import ProfileWrapper from './pages/Profile/ProfileWrapper';
 import Admin from './pages/Admin/Admin';
+import PartnerLogin from './pages/Partner/PartnerLogin';
+import PartnerDashboard from './pages/Partner/PartnerDashboard';
+import { PartnerAuthProvider, usePartnerAuth } from './contexts/PartnerAuthContext';
 import TermsAndConditions from './pages/Legal/TermsAndConditions';
 import PrivacyPolicy from './pages/Legal/PrivacyPolicy';
 
@@ -91,6 +94,24 @@ const ModuleRoute: React.FC<{
   return <>{children}</>;
 };
 
+const PartnerProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { loading, isAuthenticated } = usePartnerAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/partner/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 // Main App Component
 const AppContent: React.FC = () => {
   return (
@@ -109,6 +130,15 @@ const AppContent: React.FC = () => {
           
           {/* Public QR Code Verification Route */}
           <Route path="/verify/qr/:qrCode" element={<QrVerification />} />
+
+          {/* Partner portal (separate tenant login) */}
+          <Route path="/partner/login" element={<PartnerLogin />} />
+          <Route path="/partner/dashboard" element={
+            <PartnerProtectedRoute>
+              <PartnerDashboard />
+            </PartnerProtectedRoute>
+          } />
+          <Route path="/partner" element={<Navigate to="/partner/login" replace />} />
 
           {/* Protected Routes */}
           <Route path="/" element={
@@ -207,9 +237,11 @@ const App: React.FC = () => {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
+          <PartnerAuthProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </PartnerAuthProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

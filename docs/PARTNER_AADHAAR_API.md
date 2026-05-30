@@ -124,7 +124,6 @@ Content-Type: application/json
   "data": {
     "verificationId": "665a1b2c3d4e5f678901234",
     "tenantId": "acme_kyc",
-    "aadhaarNumber": "697798350410",
     "aadhaarMasked": "XXXX-XXXX-0410",
     "name": "Ashul Kumar",
     "dateOfBirth": "01-03-1990",
@@ -148,7 +147,6 @@ Content-Type: application/json
   "message": "No verified record found. Proceed with OTP send.",
   "data": {
     "tenantId": "acme_kyc",
-    "aadhaarNumber": "697798350410",
     "aadhaarMasked": "XXXX-XXXX-0410",
     "externalReferenceId": "YOUR-ORDER-12345"
   }
@@ -189,7 +187,7 @@ Content-Type: application/json
   "message": "OTP sent successfully",
   "data": {
     "tenantId": "acme_kyc",
-    "aadhaarNumber": "697798350410",
+    "aadhaarMasked": "XXXX-XXXX-0410",
     "transactionId": "76530688",
     "expiresAt": "2026-05-23T10:15:00.000Z",
     "processingTime": 1200

@@ -1,7 +1,20 @@
 const crypto = require('crypto');
 
 function getAadhaarHashPepper() {
-  return process.env.PARTNER_AADHAAR_HASH_PEPPER || process.env.ENCRYPTION_KEY || 'partner-aadhaar-pepper-change-me';
+  const pepper = process.env.PARTNER_AADHAAR_HASH_PEPPER || process.env.ENCRYPTION_KEY;
+  if (!pepper) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('PARTNER_AADHAAR_HASH_PEPPER or ENCRYPTION_KEY is required in production');
+    }
+    return 'dev-only-partner-aadhaar-pepper';
+  }
+  if (
+    process.env.NODE_ENV === 'production' &&
+    pepper === 'change-this-to-a-long-random-string'
+  ) {
+    throw new Error('Set a strong PARTNER_AADHAAR_HASH_PEPPER in production');
+  }
+  return pepper;
 }
 
 function normalizeAadhaar(aadhaarNumber) {

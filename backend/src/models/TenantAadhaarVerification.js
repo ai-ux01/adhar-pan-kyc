@@ -1,4 +1,47 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt, isEncrypted } = require('../utils/encryption');
+
+const SENSITIVE_STRING_FIELDS = [
+  'aadhaarNumber',
+  'name',
+  'dateOfBirth',
+  'gender',
+  'address',
+  'pinCode',
+  'state',
+  'district',
+  'careOf',
+  'photo'
+];
+
+function decryptTenantVerificationRecord(record) {
+  if (!record) return record;
+
+  const decrypted = { ...record };
+
+  SENSITIVE_STRING_FIELDS.forEach((field) => {
+    const value = decrypted[field];
+    if (value && typeof value === 'string' && isEncrypted(value)) {
+      try {
+        decrypted[field] = decrypt(value);
+      } catch {
+        decrypted[field] = '';
+      }
+    }
+  });
+
+  if (decrypted.verificationDetails && typeof decrypted.verificationDetails === 'string') {
+    if (isEncrypted(decrypted.verificationDetails)) {
+      try {
+        decrypted.verificationDetails = JSON.parse(decrypt(decrypted.verificationDetails));
+      } catch {
+        decrypted.verificationDetails = {};
+      }
+    }
+  }
+
+  return decrypted;
+}
 
 const TenantAadhaarVerificationSchema = new mongoose.Schema(
   {
@@ -61,4 +104,40 @@ TenantAadhaarVerificationSchema.index(
   { tenantId: 1, aadhaarNumberHash: 1, status: 1, verifiedAt: -1 }
 );
 
+TenantAadhaarVerificationSchema.pre('save', function encryptSensitiveFields(next) {
+  if (!process.env.ENCRYPTION_KEY) {
+    return next(new Error('Encryption key not configured'));
+  }
+
+  if (this.isNew || this.isModified()) {
+    SENSITIVE_STRING_FIELDS.forEach((field) => {
+      const value = this[field];
+      if (value && typeof value === 'string' && value.trim() !== '' && !isEncrypted(value)) {
+        try {
+          this[field] = encrypt(value);
+        } catch (error) {
+          return next(error);
+        }
+      }
+    });
+
+    if (this.verificationDetails && typeof this.verificationDetails === 'object') {
+      const serialized = JSON.stringify(this.verificationDetails);
+      if (serialized !== '{}' && !isEncrypted(serialized)) {
+        try {
+          this.verificationDetails = encrypt(serialized);
+        } catch (error) {
+          return next(error);
+        }
+      }
+    }
+  }
+
+  next();
+});
+
+TenantAadhaarVerificationSchema.statics.decryptRecord = decryptTenantVerificationRecord;
+
 module.exports = mongoose.model('TenantAadhaarVerification', TenantAadhaarVerificationSchema);
+module.exports.decryptTenantVerificationRecord = decryptTenantVerificationRecord;
+module.exports.SENSITIVE_STRING_FIELDS = SENSITIVE_STRING_FIELDS;

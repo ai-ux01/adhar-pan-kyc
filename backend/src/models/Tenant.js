@@ -40,6 +40,22 @@ const TenantSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    portalEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true
+    },
+    passwordHash: {
+      type: String,
+      select: false
+    },
+    portalSessionVersion: {
+      type: Number,
+      default: 1,
+      min: 1
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}

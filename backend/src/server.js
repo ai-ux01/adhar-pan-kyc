@@ -23,9 +23,13 @@ const dashboardRoutes = require('./routes/dashboard');
 const customFieldsRoutes = require('./routes/customFields');
 const partnerAadhaarRoutes = require('./routes/partnerAadhaar');
 const partnerAdminRoutes = require('./routes/partnerAdmin');
+const partnerAuthRoutes = require('./routes/partnerAuth');
+const { validatePartnerSecurityEnv } = require('./utils/partnerSecurityEnv');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+validatePartnerSecurityEnv();
 
 // Connect to MongoDB
 connectDB();
@@ -172,6 +176,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/custom-fields', customFieldsRoutes);
 app.use('/api/v1/partner', partnerAadhaarRoutes);
 app.use('/api/admin/partners', partnerAdminRoutes);
+app.use('/api/partner-auth', partnerAuthRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

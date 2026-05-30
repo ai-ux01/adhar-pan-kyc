@@ -1,4 +1,5 @@
 const TenantAadhaarVerification = require('../models/TenantAadhaarVerification');
+const { decryptTenantVerificationRecord } = require('../models/TenantAadhaarVerification');
 const TenantOtpSession = require('../models/TenantOtpSession');
 const {
   sendAadhaarOTP,
@@ -16,21 +17,24 @@ function parseSandboxKycPayload(otpResult) {
 }
 
 function formatVerificationResponse(record, { cached = false, source = 'sandbox_api' } = {}) {
+  const decrypted = decryptTenantVerificationRecord(
+    record && typeof record.toObject === 'function' ? record.toObject() : record
+  );
+
   return {
     verificationId: record._id,
     tenantId: record.tenantSlug,
-    aadhaarNumber: record.aadhaarNumber,
-    aadhaarMasked: maskAadhaar(record.aadhaarNumber),
+    aadhaarMasked: maskAadhaar(decrypted.aadhaarNumber || ''),
     externalReferenceId: record.externalReferenceId || '',
-    name: record.name || '',
-    dateOfBirth: record.dateOfBirth || '',
-    gender: record.gender || '',
-    address: record.address || '',
-    pinCode: record.pinCode || '',
-    state: record.state || '',
-    district: record.district || '',
-    careOf: record.careOf || '',
-    photo: record.photo || '',
+    name: decrypted.name || '',
+    dateOfBirth: decrypted.dateOfBirth || '',
+    gender: decrypted.gender || '',
+    address: decrypted.address || '',
+    pinCode: decrypted.pinCode || '',
+    state: decrypted.state || '',
+    district: decrypted.district || '',
+    careOf: decrypted.careOf || '',
+    photo: decrypted.photo || '',
     status: record.status,
     source: cached ? 'tenant_cache' : source,
     cached,
@@ -74,7 +78,6 @@ async function partnerAadhaarEntry(tenant, body) {
       : 'Consent required before OTP can be sent.',
     data: {
       tenantId: tenant.tenantId,
-      aadhaarNumber: normalized,
       aadhaarMasked: maskAadhaar(normalized),
       externalReferenceId: String(externalReferenceId || '').trim()
     }
@@ -129,7 +132,6 @@ async function partnerSendOtp(tenant, body) {
     message: 'OTP sent successfully',
     data: {
       tenantId: tenant.tenantId,
-      aadhaarNumber: normalized,
       aadhaarMasked: maskAadhaar(normalized),
       transactionId: String(transactionId),
       externalReferenceId: String(externalReferenceId || '').trim(),

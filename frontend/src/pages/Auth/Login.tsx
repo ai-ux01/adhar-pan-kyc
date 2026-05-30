@@ -223,7 +223,7 @@ const Login: React.FC = () => {
           </div>
 
           {/* Enhanced Footer */}
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <p className="text-sm text-purple-100 drop-shadow-lg">
               By signing in, you agree to our{' '}
               <a href="/terms-and-conditions" className="text-purple-200 hover:text-purple-100 font-medium transition-colors duration-300 hover:underline">
@@ -233,6 +233,12 @@ const Login: React.FC = () => {
               <a href="/privacy-policy" className="text-purple-200 hover:text-purple-100 font-medium transition-colors duration-300 hover:underline">
                 Privacy Policy
               </a>
+            </p>
+            <p className="text-sm text-purple-200/90">
+              Partner tenant?{' '}
+              <Link to="/partner/login" className="text-cyan-200 hover:text-white font-medium underline">
+                Partner portal login
+              </Link>
             </p>
           </div>
         </div>
