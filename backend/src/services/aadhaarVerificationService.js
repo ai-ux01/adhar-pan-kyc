@@ -428,5 +428,6 @@ module.exports = {
   sendAadhaarOTP,
   verifyAadhaarOTP,
   authenticateWithSandbox,
-  simulateAadhaarVerification
+  simulateAadhaarVerification,
+  extractOtpReferenceIdFromSendResponse
 };

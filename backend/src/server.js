@@ -21,6 +21,8 @@ const adminRoutes = require('./routes/admin');
 const auditRoutes = require('./routes/audit');
 const dashboardRoutes = require('./routes/dashboard');
 const customFieldsRoutes = require('./routes/customFields');
+const partnerAadhaarRoutes = require('./routes/partnerAadhaar');
+const partnerAdminRoutes = require('./routes/partnerAdmin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -168,6 +170,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/custom-fields', customFieldsRoutes);
+app.use('/api/v1/partner', partnerAadhaarRoutes);
+app.use('/api/admin/partners', partnerAdminRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

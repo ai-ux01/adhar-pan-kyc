@@ -47,11 +47,14 @@ const AuditSchema = new mongoose.Schema({
       // Archival events
       'archival_process_completed', 'archival_process_failed', 'record_marked_for_deletion',
       'record_deleted', 'record_manually_deleted', 'archival_config_updated',
+
+      // Partner / third-party API
+      'partner_aadhaar_entry', 'partner_aadhaar_otp_send', 'partner_aadhaar_otp_verify',
     ],
   },
   module: {
     type: String,
-    enum: ['auth', 'user_management', 'pan_kyc', 'aadhaar_pan', 'aadhaar_verification', 'admin', 'system', 'reports', 'archival'],
+    enum: ['auth', 'user_management', 'pan_kyc', 'aadhaar_pan', 'aadhaar_verification', 'admin', 'system', 'reports', 'archival', 'partner_aadhaar'],
     required: true,
   },
   resource: {
