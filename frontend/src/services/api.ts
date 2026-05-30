@@ -109,7 +109,24 @@ api.interceptors.request.use(
 
 // Response interceptor to retry on connection errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const payload = response.data;
+    const remaining =
+      payload?.data?.creditsRemaining ??
+      payload?.creditsRemaining ??
+      (Array.isArray(payload?.data?.results)
+        ? payload.data.results.find((row: { creditsRemaining?: number }) => row.creditsRemaining != null)
+            ?.creditsRemaining
+        : undefined);
+
+    if (remaining != null && Number.isFinite(remaining)) {
+      window.dispatchEvent(
+        new CustomEvent('credits-updated', { detail: { credits: remaining } })
+      );
+    }
+
+    return response;
+  },
   async (error: AxiosError) => {
     const config = error.config as (InternalAxiosRequestConfig & { _retryCount?: number }) | undefined;
     

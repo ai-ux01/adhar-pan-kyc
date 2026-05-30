@@ -2830,7 +2830,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     onChange={(e) => setFormData({ ...formData, credits: Math.max(0, Number(e.target.value) || 0) })}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Each successful verification uses 1 credit.</p>
+                  <p className="mt-1 text-xs text-gray-500">Each verification attempt uses 1 credit (success or failure).</p>
                 </div>
                 
                 {/* Custom Fields Access Control */}

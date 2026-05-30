@@ -58,6 +58,10 @@ async function deductCredits(userId, amount = 1) {
   return { remaining: updated.credits, deducted: amount };
 }
 
+async function consumeCredits(userId, amount = 1) {
+  return deductCredits(userId, amount);
+}
+
 function sendCreditsError(res, error) {
   return res.status(error.statusCode || 402).json({
     success: false,
@@ -71,5 +75,6 @@ module.exports = {
   isCreditsExempt,
   ensureCredits,
   deductCredits,
+  consumeCredits,
   sendCreditsError,
 };

@@ -12,7 +12,7 @@ const logger = require('../utils/logger');
 const axios = require('axios');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
-const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
+const { ensureCredits, consumeCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 const SANDBOX_PAN_AADHAAR_STATUS_ENTITY = 'in.co.sandbox.kyc.pan_aadhaar.status';
 
@@ -667,6 +667,19 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
               processingTime
             }, req);
           } else {
+            let creditResult;
+            try {
+              creditResult = await consumeCredits(req.user.id, 1);
+            } catch (creditError) {
+              results.push({
+                recordId: record._id,
+                status: 'error',
+                error: creditError.message,
+                code: creditError.code,
+              });
+              break;
+            }
+
             const verificationResult = await checkAadhaarPANStatusWithSandbox(
               aadhaar,
               pan
@@ -701,7 +714,8 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
               recordId: record._id,
               status,
               linkingStatus,
-              processingTime
+              processingTime,
+              creditsRemaining: creditResult?.remaining,
             });
 
             await logAadhaarPanEvent('aadhaar_pan_verification', req.user.id, {
@@ -922,8 +936,9 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    let creditResult;
     try {
-      await ensureCredits(req.user.id, 1);
+      creditResult = await consumeCredits(req.user.id, 1);
     } catch (creditError) {
       return sendCreditsError(res, creditError);
     }
@@ -959,12 +974,6 @@ router.post('/verify-single', protect, async (req, res) => {
 
     await tempRecord.save();
 
-    try {
-      await deductCredits(req.user.id, 1);
-    } catch (creditError) {
-      return sendCreditsError(res, creditError);
-    }
-
     // Log verification event
     await logAadhaarPanEvent('single_linking_verified', req.user.id, {
       aadhaarNumber: tempRecord.aadhaarNumber,
@@ -988,7 +997,8 @@ router.post('/verify-single', protect, async (req, res) => {
         status: tempRecord.status,
         verificationDetails: tempRecord.verificationDetails,
         processedAt: tempRecord.processedAt,
-        processingTime: tempRecord.processingTime
+        processingTime: tempRecord.processingTime,
+        creditsRemaining: creditResult?.remaining,
       }
     });
 
@@ -1200,8 +1210,9 @@ router.post('/verify', protect, async (req, res) => {
             continue;
           }
 
+          let creditResult;
           try {
-            await ensureCredits(req.user.id, 1);
+            creditResult = await consumeCredits(req.user.id, 1);
           } catch (creditError) {
             results.push({
               recordId,
@@ -1232,18 +1243,6 @@ router.post('/verify', protect, async (req, res) => {
 
           await record.save();
 
-          try {
-            await deductCredits(req.user.id, 1);
-          } catch (creditError) {
-            results.push({
-              recordId,
-              status: 'error',
-              error: creditError.message,
-              code: creditError.code,
-            });
-            break;
-          }
-
           // Log verification event
           await logAadhaarPanEvent('record_verified', req.user.id, {
             aadhaarNumber: record.aadhaarNumber,
@@ -1263,7 +1262,8 @@ router.post('/verify', protect, async (req, res) => {
               dateOfBirth: decryptedRecord.dateOfBirth
             },
             verifiedAt: record.verifiedAt,
-            source: 'sandbox_api'
+            source: 'sandbox_api',
+            creditsRemaining: creditResult?.remaining,
           });
 
         } catch (error) {
@@ -1392,6 +1392,19 @@ router.post('/status', protect, async (req, res) => {
           // Decrypt the record data
           const decryptedRecord = record.decryptData();
 
+          let creditResult;
+          try {
+            creditResult = await consumeCredits(req.user.id, 1);
+          } catch (creditError) {
+            results.push({
+              recordId,
+              status: 'error',
+              error: creditError.message,
+              code: creditError.code,
+            });
+            break;
+          }
+
           // Check status with Sandbox API
           const verificationResult = await checkAadhaarPANStatusWithSandbox(
             decryptedRecord.aadhaarNumber,
@@ -1430,7 +1443,8 @@ router.post('/status', protect, async (req, res) => {
               dateOfBirth: decryptedRecord.dateOfBirth
             },
             verifiedAt: record.verifiedAt,
-            source: 'sandbox_api'
+            source: 'sandbox_api',
+            creditsRemaining: creditResult?.remaining,
           });
 
         } catch (error) {

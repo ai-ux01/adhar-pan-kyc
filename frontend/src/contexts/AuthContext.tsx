@@ -466,6 +466,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [state.token]);
 
+  useEffect(() => {
+    const onCreditsUpdated = (event: Event) => {
+      const credits = (event as CustomEvent<{ credits: number }>).detail?.credits;
+      if (credits != null) {
+        updateUser({ credits });
+      }
+    };
+
+    window.addEventListener('credits-updated', onCreditsUpdated);
+    return () => window.removeEventListener('credits-updated', onCreditsUpdated);
+  }, []);
+
   const value: AuthContextType = {
     ...state,
     login,

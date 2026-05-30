@@ -12,7 +12,7 @@ const logger = require('../utils/logger');
 const { verifyPAN } = require('../services/panVerificationService');
 const { resolveUploadedColumnKey } = require('../utils/excelUploadColumns');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
-const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
+const { ensureCredits, consumeCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 // Helper function to convert Excel serial number to date string
 function excelSerialToDate(serial) {
@@ -468,6 +468,19 @@ router.post('/batch/:batchId/process', protect, async (req, res) => {
 
     for (const record of pendingRecords) {
       try {
+        let creditResult;
+        try {
+          creditResult = await consumeCredits(req.user.id, 1);
+        } catch (creditError) {
+          results.push({
+            recordId: record._id,
+            status: 'error',
+            error: creditError.message,
+            code: creditError.code,
+          });
+          break;
+        }
+
         // Use real Sandbox API for verification
         const startTime = Date.now();
         
@@ -598,8 +611,9 @@ router.post('/verify', protect, async (req, res) => {
             continue;
           }
 
+          let creditResult;
           try {
-            await ensureCredits(req.user.id, 1);
+            creditResult = await consumeCredits(req.user.id, 1);
           } catch (creditError) {
             results.push({
               recordId,
@@ -641,18 +655,13 @@ router.post('/verify', protect, async (req, res) => {
           };
           
           await record.save();
-
-          try {
-            await deductCredits(req.user.id, 1);
-          } catch (creditError) {
-            return sendCreditsError(res, creditError);
-          }
           
           results.push({
             recordId: record._id,
             status: record.status,
             result: verificationResult,
-            processingTime: processingTime
+            processingTime: processingTime,
+            creditsRemaining: creditResult?.remaining,
           });
 
           // Log verification event
@@ -718,6 +727,13 @@ router.post('/verify', protect, async (req, res) => {
       });
     }
 
+    let creditResult;
+    try {
+      creditResult = await consumeCredits(req.user.id, 1);
+    } catch (creditError) {
+      return sendCreditsError(res, creditError);
+    }
+
     // Create a temporary record for verification
     const tempRecord = new PanKyc({
       userId: req.user.id,
@@ -761,7 +777,9 @@ router.post('/verify', protect, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'KYC verification completed',
+      message: tempRecord.status === 'verified'
+        ? 'KYC verification completed successfully'
+        : 'KYC verification failed - data mismatch detected',
       data: {
         panNumber: tempRecord.panNumber,
         name: tempRecord.name,
@@ -769,11 +787,15 @@ router.post('/verify', protect, async (req, res) => {
         status: tempRecord.status,
         verificationDetails: tempRecord.verificationDetails,
         processedAt: tempRecord.processedAt,
-        processingTime: tempRecord.processingTime
+        processingTime: tempRecord.processingTime,
+        creditsRemaining: creditResult?.remaining,
       }
     });
 
   } catch (error) {
+    if (error.statusCode === 402) {
+      return sendCreditsError(res, error);
+    }
     logger.error('Error in single KYC verification:', error);
     res.status(500).json({
       success: false,
@@ -803,8 +825,9 @@ router.post('/verify-single', protect, async (req, res) => {
       });
     }
 
+    let creditResult;
     try {
-      await ensureCredits(req.user.id, 1);
+      creditResult = await consumeCredits(req.user.id, 1);
     } catch (creditError) {
       return sendCreditsError(res, creditError);
     }
@@ -843,12 +866,6 @@ router.post('/verify-single', protect, async (req, res) => {
     
     await tempRecord.save();
 
-    try {
-      await deductCredits(req.user.id, 1);
-    } catch (creditError) {
-      return sendCreditsError(res, creditError);
-    }
-
     // Decrypt the data before sending response
     let decryptedRecord;
     try {
@@ -886,7 +903,8 @@ router.post('/verify-single', protect, async (req, res) => {
         status: tempRecord.status,
         verificationDetails: decryptedRecord.verificationDetails,
         processedAt: tempRecord.processedAt,
-        processingTime: tempRecord.processingTime
+        processingTime: tempRecord.processingTime,
+        creditsRemaining: creditResult?.remaining,
       }
     });
 

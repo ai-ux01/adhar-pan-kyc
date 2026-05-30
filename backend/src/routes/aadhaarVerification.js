@@ -13,7 +13,7 @@ const { verifyAadhaar, simulateAadhaarVerification } = require('../services/aadh
 const { getAllowedOrigin } = require('../utils/corsHelper');
 const CustomField = require('../models/CustomField');
 const { applyCreatedAtDateFilter } = require('../utils/recordDateFilter');
-const { ensureCredits, deductCredits, sendCreditsError } = require('../utils/creditsHelper');
+const { ensureCredits, consumeCredits, sendCreditsError } = require('../utils/creditsHelper');
 
 /** Custom fields applicable to Aadhaar verification for this viewer (admin = all; others = enabledCustomFields only). */
 async function getVerificationFieldDefinitionsForUser(userId, { forKeysEndpoint = false } = {}) {
@@ -469,8 +469,9 @@ router.post('/verify-otp', protect, async (req, res) => {
       });
     }
 
+    let creditResult;
     try {
-      await ensureCredits(req.user.id, 1);
+      creditResult = await consumeCredits(req.user.id, 1);
     } catch (creditError) {
       return sendCreditsError(res, creditError);
     }
@@ -550,12 +551,6 @@ router.post('/verify-otp', protect, async (req, res) => {
 
     await verificationRecord.save();
 
-    try {
-      await deductCredits(req.user.id, 1);
-    } catch (creditError) {
-      return sendCreditsError(res, creditError);
-    }
-
     // Log the verification event
     await logAadhaarVerificationEvent('otp_verification_completed', req.user.id, {
       recordId: verificationRecord._id,
@@ -576,7 +571,8 @@ router.post('/verify-otp', protect, async (req, res) => {
         status: verificationRecord.status,
         verificationDetails: verificationRecord.verificationDetails,
         processingTime: verificationRecord.processingTime,
-        verifiedAt: verificationRecord.processedAt
+        verifiedAt: verificationRecord.processedAt,
+        creditsRemaining: creditResult?.remaining,
       }
     });
 
