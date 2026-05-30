@@ -296,6 +296,60 @@ Returns the stored record for your tenant only.
 
 ---
 
+## CORS and browser vs server calls
+
+### Correct API URL (important)
+
+Partner APIs live on the **backend**, not under `/partner/login`:
+
+| ✅ Correct | ❌ Wrong |
+|-----------|---------|
+| `https://adhar-pan-kyc.onrender.com/api/v1/partner/me` | `https://adhar-pan-kyc.onrender.com/partner/login/api/v1/partner/me` |
+
+The `/partner/login` path is the **React UI only**. Never append `/api/...` to that path.
+
+**Base URL for all partner calls:**
+
+```text
+https://adhar-pan-kyc.onrender.com/api/v1/partner
+```
+
+Example: `GET https://adhar-pan-kyc.onrender.com/api/v1/partner/me`
+
+### Recommended: call from your backend
+
+Third parties should call these APIs **server-to-server** (Node, Java, Python, etc.) with the API key. **No CORS issues** with curl or backend HTTP clients.
+
+```javascript
+// Node.js example — runs on YOUR server, not in browser
+const res = await fetch('https://adhar-pan-kyc.onrender.com/api/v1/partner/aadhaar/entry', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + process.env.PARTNER_API_KEY
+  },
+  body: JSON.stringify({ aadhaarNumber: '697798350410', consent: true })
+});
+```
+
+### Browser / JavaScript from another website
+
+If a partner calls the API **from their website’s JavaScript**, the browser sends a CORS preflight. Their origin must be allowlisted.
+
+On **Render → backend → Environment**, add:
+
+```env
+PARTNER_ALLOWED_ORIGINS=https://partner-site.com,https://app.partner-site.com
+```
+
+Then redeploy the backend. Comma-separated list of exact origins (scheme + host, no trailing slash).
+
+Also allowed by default: your Vercel app, `localhost:8080` (HTML tester), and `https://adhar-pan-kyc.onrender.com`.
+
+**Security note:** Do not embed the API key in public frontend JavaScript. Use browser calls only for testing; production integrations should use the partner’s **backend**.
+
+---
+
 ## Environment variables (server)
 
 Set on Render / `.env`:
@@ -303,6 +357,8 @@ Set on Render / `.env`:
 ```env
 PARTNER_AADHAAR_HASH_PEPPER=long-random-secret-for-aadhaar-hashing
 PARTNER_OTP_SESSION_TTL_MINUTES=15
+# Comma-separated origins allowed to call partner API from browser (CORS)
+PARTNER_ALLOWED_ORIGINS=https://your-partner-frontend.com
 SANDBOX_API_KEY=...
 SANDBOX_API_SECRET=...
 ```

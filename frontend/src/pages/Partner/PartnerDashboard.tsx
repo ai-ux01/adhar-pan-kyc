@@ -2,10 +2,19 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { usePartnerAuth } from '../../contexts/PartnerAuthContext';
 import partnerApi from '../../services/partnerApi';
-import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+
+type FlowStep = 1 | 2 | 3 | 4 | 'done';
+
+const STEPS: { id: FlowStep; label: string }[] = [
+  { id: 1, label: 'Entry' },
+  { id: 2, label: 'Send OTP' },
+  { id: 3, label: 'Verify OTP' },
+  { id: 4, label: 'Get record' }
+];
 
 const PartnerDashboard: React.FC = () => {
-  const { tenant, loading, isAuthenticated, logout } = usePartnerAuth();
+  const { tenant, loading, isAuthenticated, authMode, logout } = usePartnerAuth();
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [externalReferenceId, setExternalReferenceId] = useState('');
   const [consent, setConsent] = useState(true);
@@ -15,7 +24,8 @@ const PartnerDashboard: React.FC = () => {
   const [apiLoading, setApiLoading] = useState(false);
   const [lastResponse, setLastResponse] = useState<unknown>(null);
   const [lastStatus, setLastStatus] = useState<number | null>(null);
-  const [stepHint, setStepHint] = useState('Start with Entry to check cache.');
+  const [currentStep, setCurrentStep] = useState<FlowStep>(1);
+  const [stepHint, setStepHint] = useState('Step 1: Check if Aadhaar is already verified (cache).');
 
   if (!loading && !isAuthenticated) {
     return <Navigate to="/partner/login" replace />;
@@ -28,6 +38,16 @@ const PartnerDashboard: React.FC = () => {
       </div>
     );
   }
+
+  const validateAadhaar = (): boolean => {
+    const n = aadhaarNumber.replace(/\s/g, '');
+    if (!/^\d{12}$/.test(n)) {
+      setLastResponse({ success: false, message: 'Enter a valid 12-digit Aadhaar number' });
+      setLastStatus(400);
+      return false;
+    }
+    return true;
+  };
 
   const sharedBody = () => ({
     aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
@@ -49,14 +69,6 @@ const PartnerDashboard: React.FC = () => {
       if (data?.transactionId) setTransactionId(String(data.transactionId));
       if (data?.verificationId) setVerificationId(String(data.verificationId));
 
-      if (res.data?.cached) {
-        setStepHint('Cache hit — Aadhaar already verified for your tenant.');
-      } else if (res.data?.otpRequired === false && res.data?.cached) {
-        setStepHint('Verified from cache.');
-      } else if (res.data?.otpSent) {
-        setStepHint('OTP sent. Enter OTP and click Verify OTP.');
-      }
-
       return res.data;
     } catch (error: any) {
       setLastResponse(error.response?.data || { message: error.message });
@@ -67,57 +79,139 @@ const PartnerDashboard: React.FC = () => {
     }
   };
 
-  const handleEntry = () => runRequest('Entry check', 'post', '/v1/partner/aadhaar/entry', sharedBody());
-  const handleSendOtp = () => runRequest('Send OTP', 'post', '/v1/partner/aadhaar/otp/send', {
-    ...sharedBody(),
-    reason: 'KYC Verification'
-  });
-  const handleVerifyOtp = () => runRequest('Verify OTP', 'post', '/v1/partner/aadhaar/otp/verify', {
-    aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
-    otp: otp.trim(),
-    transactionId: transactionId.trim(),
-    externalReferenceId: externalReferenceId.trim() || undefined
-  });
-  const handleGetVerification = () => {
+  const handleEntry = async () => {
+    if (!validateAadhaar()) return;
+    try {
+      const result = await runRequest('Step 1 — Entry (cache check)', 'post', '/v1/partner/aadhaar/entry', sharedBody());
+      if (result.cached) {
+        setCurrentStep('done');
+        setStepHint('Done — cache hit. KYC data returned below. No OTP needed.');
+      } else {
+        setCurrentStep(2);
+        setStepHint('Step 2 — No cache. Click Send OTP or use Run complete flow.');
+      }
+    } catch {
+      /* shown in response panel */
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!validateAadhaar()) return;
+    if (!consent) {
+      setLastResponse({ success: false, message: 'Consent must be checked before sending OTP' });
+      setLastStatus(400);
+      return;
+    }
+    try {
+      const result = await runRequest('Step 2 — Send OTP', 'post', '/v1/partner/aadhaar/otp/send', {
+        ...sharedBody(),
+        reason: 'KYC Verification'
+      });
+      if (result.cached) {
+        setCurrentStep('done');
+        setStepHint('Done — verified from cache.');
+      } else if (result.otpSent) {
+        setCurrentStep(3);
+        setStepHint('Step 3 — OTP sent to Aadhaar mobile. Enter OTP + click Verify OTP.');
+      }
+    } catch {
+      /* shown in response panel */
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!validateAadhaar()) return;
+    if (!otp.trim() || !transactionId.trim()) {
+      setLastResponse({ success: false, message: 'OTP and transaction ID are required' });
+      setLastStatus(400);
+      return;
+    }
+    try {
+      const result = await runRequest('Step 3 — Verify OTP', 'post', '/v1/partner/aadhaar/otp/verify', {
+        aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
+        otp: otp.trim(),
+        transactionId: transactionId.trim(),
+        externalReferenceId: externalReferenceId.trim() || undefined
+      });
+      if (result.success) {
+        setCurrentStep(4);
+        setStepHint('Step 4 — Verified! Optional: click Get record to fetch by verificationId.');
+      }
+    } catch {
+      /* shown in response panel */
+    }
+  };
+
+  const handleGetVerification = async () => {
     if (!verificationId.trim()) {
       setLastResponse({ success: false, message: 'Enter verificationId first' });
       setLastStatus(400);
       return;
     }
-    return runRequest('Get verification', 'get', `/v1/partner/aadhaar/verification/${encodeURIComponent(verificationId.trim())}`);
+    try {
+      await runRequest(
+        'Step 4 — Get verification record',
+        'get',
+        `/v1/partner/aadhaar/verification/${encodeURIComponent(verificationId.trim())}`
+      );
+      setCurrentStep('done');
+      setStepHint('Complete flow finished.');
+    } catch {
+      /* shown in response panel */
+    }
   };
 
-  const handleFullFlow = async () => {
+  const handleCompleteFlow = async () => {
+    if (!validateAadhaar()) return;
     try {
-      const entry = await runRequest('Full flow — entry', 'post', '/v1/partner/aadhaar/entry', sharedBody());
-      if (entry.cached) return;
+      const entry = await runRequest('Complete flow — entry', 'post', '/v1/partner/aadhaar/entry', sharedBody());
+      if (entry.cached) {
+        setCurrentStep('done');
+        setStepHint('Complete — already verified (cache).');
+        return;
+      }
 
-      const send = await runRequest('Full flow — send OTP', 'post', '/v1/partner/aadhaar/otp/send', {
+      if (!consent) {
+        setLastResponse({ success: false, message: 'Enable consent before running OTP flow' });
+        setLastStatus(400);
+        return;
+      }
+
+      const send = await runRequest('Complete flow — send OTP', 'post', '/v1/partner/aadhaar/otp/send', {
         ...sharedBody(),
         reason: 'KYC Verification'
       });
-      if (send.cached) return;
+      if (send.cached) {
+        setCurrentStep('done');
+        return;
+      }
 
-      setStepHint('OTP sent. Enter the code from the phone and click Verify OTP.');
+      setCurrentStep(3);
+      setStepHint('OTP sent. Enter the 6-digit code from the phone, then click Verify OTP.');
     } catch {
-      // response already shown
+      /* shown in response panel */
     }
   };
+
+  const stepIndex = (s: FlowStep) => (s === 'done' ? 4 : s);
 
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Partner Aadhaar API</h1>
+            <h1 className="text-lg font-bold text-slate-900">Partner Aadhaar — Test Console</h1>
             <p className="text-sm text-slate-600">
               {tenant?.name} · <span className="font-mono text-xs">{tenant?.tenantId}</span>
+              {authMode === 'apiKey' && (
+                <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">API key</span>
+              )}
             </p>
           </div>
           <button
             type="button"
             onClick={logout}
-            className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg border border-slate-200"
+            className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 px-3 py-2 rounded-lg border border-slate-200 shrink-0"
           >
             <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
             Logout
@@ -126,20 +220,48 @@ const PartnerDashboard: React.FC = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-900">
-          {stepHint}
+        {/* Step progress */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <div className="flex flex-wrap gap-2 justify-between mb-3">
+            {STEPS.map((step) => {
+              const done = stepIndex(currentStep) > step.id || currentStep === 'done';
+              const active = currentStep === step.id;
+              return (
+                <div
+                  key={step.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                    done
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : active
+                        ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                        : 'bg-slate-50 text-slate-500 border border-slate-100'
+                  }`}
+                >
+                  {done ? (
+                    <CheckCircleIcon className="h-4 w-4" />
+                  ) : (
+                    <span className="w-5 h-5 rounded-full bg-current/10 flex items-center justify-center text-xs">
+                      {step.id}
+                    </span>
+                  )}
+                  {step.label}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-sm text-indigo-900 bg-indigo-50 border border-indigo-100 rounded-lg p-3">{stepHint}</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
             <h2 className="font-semibold text-slate-900">Request fields</h2>
             <div>
-              <label className="text-sm text-slate-600">Aadhaar number</label>
+              <label className="text-sm text-slate-600">Aadhaar number *</label>
               <input
                 value={aadhaarNumber}
-                onChange={(e) => setAadhaarNumber(e.target.value)}
+                onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
                 maxLength={12}
-                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-mono"
                 placeholder="697798350410"
               />
             </div>
@@ -161,24 +283,26 @@ const PartnerDashboard: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
             <h2 className="font-semibold text-slate-900">OTP verify</h2>
             <div>
-              <label className="text-sm text-slate-600">Transaction ID</label>
+              <label className="text-sm text-slate-600">Transaction ID (from Send OTP)</label>
               <input
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
                 className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 font-mono text-sm"
+                placeholder="76530688"
               />
             </div>
             <div>
-              <label className="text-sm text-slate-600">OTP</label>
+              <label className="text-sm text-slate-600">OTP from phone</label>
               <input
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"
+                className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-lg tracking-widest font-mono"
+                placeholder="123456"
               />
             </div>
             <div>
-              <label className="text-sm text-slate-600">Verification ID (for GET)</label>
+              <label className="text-sm text-slate-600">Verification ID (auto-filled after verify)</label>
               <input
                 value={verificationId}
                 onChange={(e) => setVerificationId(e.target.value)}
@@ -188,30 +312,36 @@ const PartnerDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h2 className="font-semibold text-slate-900 mb-4">API actions</h2>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={apiLoading} onClick={handleEntry} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <h2 className="font-semibold text-slate-900">Run flow</h2>
+          <button
+            type="button"
+            disabled={apiLoading}
+            onClick={handleCompleteFlow}
+            className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold disabled:opacity-50"
+          >
+            Run complete flow (Entry → Send OTP)
+          </button>
+          <p className="text-xs text-slate-500">After OTP arrives on the phone, enter it above and click Verify OTP.</p>
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+            <button type="button" disabled={apiLoading} onClick={handleEntry} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm disabled:opacity-50">
               1. Entry
             </button>
-            <button type="button" disabled={apiLoading} onClick={handleSendOtp} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+            <button type="button" disabled={apiLoading} onClick={handleSendOtp} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm disabled:opacity-50">
               2. Send OTP
             </button>
-            <button type="button" disabled={apiLoading} onClick={handleVerifyOtp} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+            <button type="button" disabled={apiLoading} onClick={handleVerifyOtp} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm disabled:opacity-50">
               3. Verify OTP
             </button>
-            <button type="button" disabled={apiLoading} onClick={handleGetVerification} className="px-4 py-2 border border-slate-300 rounded-lg text-sm">
-              Get record
-            </button>
-            <button type="button" disabled={apiLoading} onClick={handleFullFlow} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
-              Run entry → send
+            <button type="button" disabled={apiLoading} onClick={handleGetVerification} className="px-4 py-2 border border-slate-300 rounded-lg text-sm disabled:opacity-50">
+              4. Get record
             </button>
           </div>
         </div>
 
         <div className="bg-slate-900 rounded-xl p-5 text-slate-100">
           <div className="flex items-center justify-between mb-3 text-sm">
-            <span className="font-medium">Response</span>
+            <span className="font-medium">API response</span>
             {lastStatus != null && (
               <span className={lastStatus >= 200 && lastStatus < 300 ? 'text-emerald-400' : 'text-red-400'}>
                 HTTP {lastStatus}
@@ -219,7 +349,7 @@ const PartnerDashboard: React.FC = () => {
             )}
           </div>
           <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap break-words">
-            {lastResponse ? JSON.stringify(lastResponse, null, 2) : 'Run an API action to see JSON here.'}
+            {lastResponse ? JSON.stringify(lastResponse, null, 2) : 'Responses appear here after each step.'}
           </pre>
         </div>
       </main>

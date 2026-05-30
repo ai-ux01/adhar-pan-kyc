@@ -90,7 +90,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Requested-With', 'Cache-Control', 'Pragma'],
   exposedHeaders: ['Content-Length', 'X-Requested-With', 'X-Response-Time-Ms'],
   optionsSuccessStatus: 200
 }));

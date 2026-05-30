@@ -1,20 +1,40 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Determine API base URL
-// Priority: REACT_APP_API_URL env var > production fallback > localhost
+const PRODUCTION_API_BASE = 'https://adhar-pan-kyc.onrender.com/api';
+
+/** Always return an absolute API base URL (never a path-relative "api" that breaks on /partner/login). */
 const getApiBaseURL = () => {
-  // If REACT_APP_API_URL is explicitly set, use it
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+  const envUrl = process.env.REACT_APP_API_URL?.trim();
+
+  if (envUrl) {
+    if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+      return envUrl.replace(/\/$/, '');
+    }
+    // "/api" — same-origin proxy (Vercel). Only use relative URL on hosts that proxy /api → backend.
+    if (envUrl.startsWith('/')) {
+      const host = window.location.hostname;
+      const canUseSameOriginProxy =
+        host.includes('vercel.app') ||
+        host.includes('netlify.app') ||
+        host.includes('amplifyapp.com') ||
+        host === 'localhost' ||
+        host === '127.0.0.1';
+      if (canUseSameOriginProxy) {
+        return envUrl.replace(/\/$/, '');
+      }
+      return PRODUCTION_API_BASE;
+    }
+    // Misconfigured "api" without leading slash — would resolve to /partner/login/api/...
+    console.warn('REACT_APP_API_URL should be absolute or start with /. Using production API URL.');
+    return PRODUCTION_API_BASE;
   }
-  
-  // Check if we're in production (hosted, not localhost)
-  const isProduction = window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1' &&
-                       !window.location.hostname.startsWith('192.168.');
-  
-  // Use production URL if in production, otherwise localhost
-  return isProduction ? 'https://adhar-pan-kyc.onrender.com/api' : 'http://localhost:3002/api';
+
+  const isLocal =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.');
+
+  return isLocal ? 'http://localhost:3002/api' : PRODUCTION_API_BASE;
 };
 
 const apiBaseURL = getApiBaseURL();

@@ -6,14 +6,11 @@
   <title>Partner Aadhaar API Tester</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --panel: #1e293b;
       --border: #334155;
       --text: #e2e8f0;
       --muted: #94a3b8;
       --accent: #38bdf8;
       --accent2: #34d399;
-      --danger: #f87171;
       --code: #0b1220;
     }
     * { box-sizing: border-box; }
@@ -27,30 +24,19 @@
     }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
     h1 { font-size: 1.5rem; margin: 0 0 8px; }
-    .sub { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
+    .sub { color: var(--muted); margin-bottom: 20px; font-size: 0.95rem; }
     .grid { display: grid; gap: 16px; }
-    @media (min-width: 900px) {
-      .grid-2 { grid-template-columns: 1fr 1fr; }
-    }
+    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
     .card {
-      background: rgba(30, 41, 59, 0.85);
+      background: rgba(30, 41, 59, 0.9);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 18px;
-      backdrop-filter: blur(8px);
     }
-    .card h2 {
-      margin: 0 0 12px;
-      font-size: 1rem;
-      color: var(--accent);
-    }
-    label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-    input, textarea, select {
+    .card h2 { margin: 0 0 12px; font-size: 1rem; color: var(--accent); }
+    .card h3 { margin: 0 0 8px; font-size: 0.9rem; color: var(--text); }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+    input, textarea {
       width: 100%;
       padding: 10px 12px;
       border-radius: 8px;
@@ -60,172 +46,144 @@
       font-size: 0.9rem;
       margin-bottom: 12px;
     }
-    textarea { min-height: 88px; font-family: ui-monospace, monospace; resize: vertical; }
+    input.mono { font-family: ui-monospace, monospace; font-size: 0.85rem; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     button {
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 16px;
-      font-weight: 600;
-      font-size: 0.875rem;
-      transition: transform 0.1s, opacity 0.15s;
+      cursor: pointer; border: none; border-radius: 8px;
+      padding: 10px 16px; font-weight: 600; font-size: 0.875rem;
     }
-    button:active { transform: scale(0.98); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #0f172a; }
     .btn-success { background: var(--accent2); color: #064e3b; }
     .btn-secondary { background: #475569; color: white; }
-    .btn-danger { background: #7f1d1d; color: #fecaca; }
-    .hint { font-size: 0.75rem; color: var(--muted); margin: -8px 0 12px; }
-    .steps {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
+    .btn-lg { padding: 14px 20px; font-size: 1rem; width: 100%; }
+    .hint { font-size: 0.75rem; color: var(--muted); margin: -6px 0 12px; }
+    .flow-steps {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
     }
-    .step {
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      background: #334155;
-      color: var(--muted);
+    .flow-step {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 600;
+      border: 1px solid var(--border); background: #1e293b; color: var(--muted);
     }
-    .step.active { background: #0369a1; color: white; }
-    .step.done { background: #065f46; color: #a7f3d0; }
+    .flow-step.active { background: #1e3a5f; border-color: #38bdf8; color: #bae6fd; }
+    .flow-step.done { background: #064e3b; border-color: #34d399; color: #a7f3d0; }
+    .flow-step .num {
+      width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 0.7rem; background: rgba(255,255,255,0.1);
+    }
+    .hint-banner {
+      background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 10px; padding: 12px 14px; font-size: 0.875rem; margin-bottom: 16px;
+    }
     #responseBox {
-      background: var(--code);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      min-height: 200px;
-      max-height: 420px;
-      overflow: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.8rem;
-      white-space: pre-wrap;
-      word-break: break-word;
+      background: var(--code); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px; min-height: 180px; max-height: 400px; overflow: auto;
+      font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem;
+      white-space: pre-wrap; word-break: break-word;
     }
-    .status-line {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.85rem;
-    }
-    .badge {
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
+    .status-line { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 0.85rem; }
+    .badge { padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
     .badge-ok { background: #065f46; color: #6ee7b7; }
     .badge-err { background: #7f1d1d; color: #fca5a5; }
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     .checkbox-row input { width: auto; margin: 0; }
+    details { margin-top: 16px; }
+    details summary {
+      cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 8px 0;
+      user-select: none;
+    }
+    details[open] summary { color: var(--accent); margin-bottom: 8px; }
     a { color: var(--accent); }
+    .tenant-badge {
+      display: inline-block; font-size: 0.75rem; background: #065f46; color: #6ee7b7;
+      padding: 2px 10px; border-radius: 999px; margin-left: 8px;
+    }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Partner Aadhaar API Tester</h1>
     <p class="sub">
-      Test partner endpoints with your API key, or create a tenant using admin JWT.
-      See <a href="./PARTNER_AADHAAR_API.md">PARTNER_AADHAAR_API.md</a>.
+      Test the full partner flow with your <strong>ak_live_...</strong> API key.
+      Docs: <a href="./PARTNER_AADHAAR_API.md">PARTNER_AADHAAR_API.md</a>
     </p>
 
-    <div class="steps" id="flowSteps">
-      <span class="step" data-step="config">1. Config</span>
-      <span class="step" data-step="entry">2. Entry</span>
-      <span class="step" data-step="send">3. Send OTP</span>
-      <span class="step" data-step="verify">4. Verify OTP</span>
+    <!-- Step progress -->
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="flow-steps" id="flowSteps">
+        <div class="flow-step active" data-step="1"><span class="num">1</span> Entry</div>
+        <div class="flow-step" data-step="2"><span class="num">2</span> Send OTP</div>
+        <div class="flow-step" data-step="3"><span class="num">3</span> Verify OTP</div>
+        <div class="flow-step" data-step="4"><span class="num">4</span> Get record</div>
+      </div>
+      <div class="hint-banner" id="stepHint">Set API root + API key, then run the complete flow.</div>
     </div>
 
     <div class="grid grid-2">
       <div class="card">
-        <h2>Connection &amp; tokens</h2>
+        <h2>1. Connection</h2>
         <label for="apiRoot">API root (no trailing slash)</label>
         <input id="apiRoot" type="text" placeholder="https://adhar-pan-kyc.onrender.com" />
-        <p class="hint">Local: http://localhost:3002</p>
+        <p class="hint">Local backend: http://localhost:3002</p>
 
-        <label for="partnerToken">Partner API key</label>
-        <input id="partnerToken" type="password" placeholder="ak_live_tenant_..." autocomplete="off" />
+        <label for="partnerToken">Partner API key *</label>
+        <input id="partnerToken" class="mono" type="password" placeholder="ak_live_tenant_..." autocomplete="off" />
         <div class="checkbox-row">
           <input type="checkbox" id="showPartnerToken" />
           <label for="showPartnerToken" style="margin:0">Show API key</label>
         </div>
-
-        <label for="adminToken">Admin JWT (optional — create tenant)</label>
-        <input id="adminToken" type="password" placeholder="From POST /api/auth/login" autocomplete="off" />
-
         <div class="row">
-          <button type="button" class="btn-secondary" id="btnSaveConfig">Save to browser</button>
-          <button type="button" class="btn-secondary" id="btnClearConfig">Clear saved</button>
+          <button type="button" class="btn-secondary" id="btnTestKey">Test API key</button>
+          <button type="button" class="btn-secondary" id="btnSaveConfig">Save</button>
+          <button type="button" class="btn-secondary" id="btnClearConfig">Clear</button>
         </div>
+        <p id="tenantInfo" class="hint" style="margin-top:8px;"></p>
       </div>
 
       <div class="card">
-        <h2>Admin — login &amp; create tenant</h2>
-        <label for="adminEmail">Admin email</label>
-        <input id="adminEmail" type="email" placeholder="admin@example.com" />
-        <label for="adminPassword">Admin password</label>
-        <input id="adminPassword" type="password" placeholder="••••••••" />
-        <div class="row">
-          <button type="button" class="btn-secondary" id="btnAdminLogin">Login → fill JWT</button>
-        </div>
-
-        <hr style="border-color: var(--border); margin: 16px 0;" />
-
-        <label for="newTenantId">tenantId</label>
-        <input id="newTenantId" type="text" placeholder="acme_kyc" />
-        <label for="newTenantName">name</label>
-        <input id="newTenantName" type="text" placeholder="Acme KYC Pvt Ltd" />
-        <label for="newTenantEmail">contactEmail</label>
-        <input id="newTenantEmail" type="email" placeholder="api@acme.com" />
-        <div class="row">
-          <button type="button" class="btn-success" id="btnCreateTenant">Create tenant</button>
-          <button type="button" class="btn-secondary" id="btnListTenants">List tenants</button>
+        <h2>2. Aadhaar request</h2>
+        <label for="aadhaarNumber">Aadhaar number * (12 digits)</label>
+        <input id="aadhaarNumber" class="mono" type="text" maxlength="12" placeholder="697798350410" />
+        <label for="externalRef">externalReferenceId</label>
+        <input id="externalRef" type="text" placeholder="ORDER-12345" />
+        <div class="checkbox-row">
+          <input type="checkbox" id="consent" checked />
+          <label for="consent" style="margin:0">consent (required for OTP)</label>
         </div>
       </div>
     </div>
 
     <div class="grid grid-2" style="margin-top: 16px;">
       <div class="card">
-        <h2>Shared fields</h2>
-        <label for="aadhaarNumber">Aadhaar number</label>
-        <input id="aadhaarNumber" type="text" maxlength="12" placeholder="697798350410" />
-        <label for="externalRef">externalReferenceId</label>
-        <input id="externalRef" type="text" placeholder="YOUR-ORDER-12345" />
-        <div class="checkbox-row">
-          <input type="checkbox" id="consent" checked />
-          <label for="consent" style="margin:0">consent (required for OTP send)</label>
-        </div>
+        <h2>3. OTP verify</h2>
+        <label for="transactionId">transactionId (auto-filled from Send OTP)</label>
+        <input id="transactionId" class="mono" type="text" placeholder="76530688" />
+        <label for="otp">OTP from phone (6 digits)</label>
+        <input id="otp" class="mono" type="text" maxlength="6" placeholder="123456"
+               style="font-size:1.1rem; letter-spacing:0.2em;" />
+        <label for="verificationId">verificationId (auto-filled after verify)</label>
+        <input id="verificationId" class="mono" type="text" placeholder="665a1b2c..." />
       </div>
 
       <div class="card">
-        <h2>OTP verify fields</h2>
-        <label for="transactionId">transactionId (from send OTP response)</label>
-        <input id="transactionId" type="text" placeholder="76530688" />
-        <label for="otp">OTP (6 digits)</label>
-        <input id="otp" type="text" maxlength="6" placeholder="123456" />
-        <label for="verificationId">verificationId (for GET)</label>
-        <input id="verificationId" type="text" placeholder="MongoDB _id from verify response" />
-      </div>
-    </div>
-
-    <div class="card" style="margin-top: 16px;">
-      <h2>Partner API actions</h2>
-      <div class="row">
-        <button type="button" class="btn-primary" id="btnEntry">POST /aadhaar/entry</button>
-        <button type="button" class="btn-primary" id="btnSendOtp">POST /aadhaar/otp/send</button>
-        <button type="button" class="btn-primary" id="btnVerifyOtp">POST /aadhaar/otp/verify</button>
-        <button type="button" class="btn-secondary" id="btnGetVerification">GET /aadhaar/verification/:id</button>
-        <button type="button" class="btn-danger" id="btnRunFlow">Run full flow (entry → send if needed)</button>
+        <h2>4. Run flow</h2>
+        <p class="hint">Green button runs Entry → Send OTP. Then enter OTP and verify.</p>
+        <button type="button" class="btn-success btn-lg" id="btnRunFlow" style="margin-bottom:10px;">
+          ▶ Run complete flow (Entry → Send OTP)
+        </button>
+        <button type="button" class="btn-primary btn-lg" id="btnVerifyAndGet" style="margin-bottom:14px;">
+          ✓ Verify OTP → Get record
+        </button>
+        <hr class="divider" />
+        <h3>Individual steps</h3>
+        <div class="row">
+          <button type="button" class="btn-primary" id="btnEntry">1. Entry</button>
+          <button type="button" class="btn-primary" id="btnSendOtp">2. Send OTP</button>
+          <button type="button" class="btn-primary" id="btnVerifyOtp">3. Verify</button>
+          <button type="button" class="btn-secondary" id="btnGetVerification">4. GET record</button>
+        </div>
       </div>
     </div>
 
@@ -234,243 +192,330 @@
       <div class="status-line">
         <span id="httpStatus">—</span>
         <span id="elapsed">—</span>
+        <span id="loadingIndicator" style="color:var(--muted);display:none;">Loading…</span>
       </div>
-      <pre id="responseBox">Click an action to see the JSON response here.</pre>
+      <pre id="responseBox">Configure API key and run a step to see JSON here.</pre>
     </div>
+
+    <details>
+      <summary>Admin — create tenant (optional)</summary>
+      <div class="grid grid-2" style="margin-top:12px;">
+        <div class="card">
+          <h2>Admin login</h2>
+          <label for="adminEmail">Email</label>
+          <input id="adminEmail" type="email" placeholder="admin@example.com" />
+          <label for="adminPassword">Password</label>
+          <input id="adminPassword" type="password" />
+          <label for="adminToken">Admin JWT</label>
+          <input id="adminToken" class="mono" type="password" placeholder="Filled after login" />
+          <button type="button" class="btn-secondary" id="btnAdminLogin">Login → fill JWT</button>
+        </div>
+        <div class="card">
+          <h2>Create tenant</h2>
+          <label for="newTenantId">tenantId</label>
+          <input id="newTenantId" placeholder="acme_kyc" />
+          <label for="newTenantName">name</label>
+          <input id="newTenantName" placeholder="Acme KYC Pvt Ltd" />
+          <label for="portalEmail">portalEmail *</label>
+          <input id="portalEmail" type="email" placeholder="partner@acme.com" />
+          <label for="portalPassword">portalPassword (optional, auto-generated)</label>
+          <input id="portalPassword" type="text" placeholder="min 8 chars" />
+          <div class="row">
+            <button type="button" class="btn-success" id="btnCreateTenant">Create tenant</button>
+            <button type="button" class="btn-secondary" id="btnListTenants">List</button>
+          </div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <script>
     const STORAGE_KEY = 'partnerApiTesterConfig';
+    let busy = false;
+    let currentStep = 1;
 
     const el = (id) => document.getElementById(id);
 
+    function setHint(text) { el('stepHint').textContent = text; }
+
+    function setBusy(on) {
+      busy = on;
+      el('loadingIndicator').style.display = on ? 'inline' : 'none';
+      ['btnRunFlow','btnVerifyAndGet','btnEntry','btnSendOtp','btnVerifyOtp','btnGetVerification','btnTestKey'].forEach(id => {
+        el(id).disabled = on;
+      });
+    }
+
+    function setFlowStep(step, { doneUpTo = 0 } = {}) {
+      currentStep = step;
+      document.querySelectorAll('.flow-step').forEach((node) => {
+        const n = Number(node.dataset.step);
+        node.classList.remove('active', 'done');
+        if (n < step || (doneUpTo && n <= doneUpTo)) node.classList.add('done');
+        else if (n === step) node.classList.add('active');
+      });
+      if (step === 'done') {
+        document.querySelectorAll('.flow-step').forEach((node) => node.classList.add('done'));
+      }
+    }
+
     function loadConfig() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const c = JSON.parse(raw);
+        const c = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         if (c.apiRoot) el('apiRoot').value = c.apiRoot;
         if (c.partnerToken) el('partnerToken').value = c.partnerToken;
         if (c.adminToken) el('adminToken').value = c.adminToken;
         if (c.aadhaarNumber) el('aadhaarNumber').value = c.aadhaarNumber;
+        if (c.tenantName) el('tenantInfo').innerHTML = 'Saved tenant: <span class="tenant-badge">' + c.tenantName + '</span>';
       } catch (_) {}
     }
 
-    function saveConfig() {
+    function saveConfig(extra = {}) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         apiRoot: el('apiRoot').value.trim(),
         partnerToken: el('partnerToken').value.trim(),
         adminToken: el('adminToken').value.trim(),
-        aadhaarNumber: el('aadhaarNumber').value.trim()
+        aadhaarNumber: el('aadhaarNumber').value.trim(),
+        ...extra
       }));
-      showResponse({ success: true, message: 'Settings saved in this browser.' }, 200, 0);
-    }
-
-    function clearConfig() {
-      localStorage.removeItem(STORAGE_KEY);
-      showResponse({ success: true, message: 'Saved settings cleared.' }, 200, 0);
     }
 
     function apiRoot() {
       const root = el('apiRoot').value.trim().replace(/\/$/, '');
-      if (!root) throw new Error('Set API root first (e.g. https://adhar-pan-kyc.onrender.com)');
+      if (!root) throw new Error('Set API root (e.g. https://adhar-pan-kyc.onrender.com)');
       return root;
     }
 
     function partnerHeaders() {
       const token = el('partnerToken').value.trim();
-      if (!token) throw new Error('Set Partner API key (ak_live_...)');
-      return {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token
-      };
+      if (!token) throw new Error('Paste Partner API key (ak_live_...)');
+      if (!token.startsWith('ak_live_')) throw new Error('API key must start with ak_live_');
+      return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
     }
 
     function adminHeaders() {
       const token = el('adminToken').value.trim();
-      if (!token) throw new Error('Set Admin JWT (login first)');
-      return {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token
-      };
+      if (!token) throw new Error('Admin JWT required — expand Admin section and login');
+      return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+    }
+
+    function getAadhaar() {
+      const n = el('aadhaarNumber').value.replace(/\D/g, '');
+      if (!/^\d{12}$/.test(n)) throw new Error('Enter a valid 12-digit Aadhaar number');
+      return n;
     }
 
     function sharedBody() {
       return {
-        aadhaarNumber: el('aadhaarNumber').value.replace(/\s/g, ''),
+        aadhaarNumber: getAadhaar(),
         consent: el('consent').checked,
         externalReferenceId: el('externalRef').value.trim() || undefined
       };
     }
 
+    function applyResponseFields(data) {
+      if (!data || !data.data) return;
+      if (data.data.transactionId != null) el('transactionId').value = String(data.data.transactionId);
+      if (data.data.verificationId != null) el('verificationId').value = String(data.data.verificationId);
+    }
+
     function showResponse(data, status, ms) {
       el('responseBox').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-      const badge = el('httpStatus');
-      badge.innerHTML = status
-        ? `<span class="badge ${status >= 200 && status < 300 ? 'badge-ok' : 'badge-err'}">HTTP ${status}</span>`
+      el('httpStatus').innerHTML = status
+        ? '<span class="badge ' + (status >= 200 && status < 300 ? 'badge-ok' : 'badge-err') + '">HTTP ' + status + '</span>'
         : '—';
-      el('elapsed').textContent = ms != null ? `${ms} ms` : '—';
-
-      if (data && data.data) {
-        if (data.data.transactionId) el('transactionId').value = data.data.transactionId;
-        if (data.data.verificationId) el('verificationId').value = data.data.verificationId;
-      }
+      el('elapsed').textContent = ms != null ? ms + ' ms' : '—';
+      if (data && typeof data === 'object') applyResponseFields(data);
     }
 
     async function request(method, url, headers, body) {
       const start = performance.now();
-      const opts = { method, headers };
+      const opts = { method, headers: headers || {} };
       if (body != null) opts.body = JSON.stringify(body);
       const res = await fetch(url, opts);
       const text = await res.text();
       let json;
-      try { json = JSON.parse(text); } catch { json = text; }
+      try { json = JSON.parse(text); } catch { json = { raw: text }; }
       showResponse(json, res.status, Math.round(performance.now() - start));
       return { ok: res.ok, status: res.status, data: json };
     }
 
-    function setStep(name) {
-      document.querySelectorAll('.step').forEach((s) => {
-        s.classList.remove('active');
-        if (s.dataset.step === name) s.classList.add('active');
-      });
+    async function partnerPost(path, body) {
+      return request('POST', apiRoot() + '/api/v1/partner' + path, partnerHeaders(), body);
     }
 
-    el('btnSaveConfig').addEventListener('click', saveConfig);
-    el('btnClearConfig').addEventListener('click', clearConfig);
+    async function partnerGet(path) {
+      return request('GET', apiRoot() + '/api/v1/partner' + path, partnerHeaders());
+    }
 
+    async function doEntry() {
+      setFlowStep(1);
+      setHint('Step 1 — Checking tenant cache…');
+      const { ok, data } = await partnerPost('/aadhaar/entry', sharedBody());
+      if (!ok) throw new Error(data.message || 'Entry failed');
+      if (data.cached) {
+        setFlowStep('done', { doneUpTo: 4 });
+        setHint('Done — cache hit. KYC returned below. No OTP needed.');
+        return { stop: true, data };
+      }
+      setFlowStep(2, { doneUpTo: 1 });
+      setHint('Step 2 — Not cached. Send OTP next.');
+      return { stop: false, data };
+    }
+
+    async function doSendOtp() {
+      if (!el('consent').checked) throw new Error('Check consent before sending OTP');
+      setFlowStep(2);
+      setHint('Step 2 — Sending OTP via Sandbox…');
+      const { ok, data } = await partnerPost('/aadhaar/otp/send', {
+        ...sharedBody(),
+        reason: 'KYC Verification'
+      });
+      if (!ok) throw new Error(data.message || 'Send OTP failed');
+      if (data.cached) {
+        setFlowStep('done', { doneUpTo: 4 });
+        setHint('Done — verified from cache.');
+        return { stop: true, data };
+      }
+      setFlowStep(3, { doneUpTo: 2 });
+      setHint('Step 3 — OTP sent. Enter code from phone, then Verify.');
+      return { stop: false, data };
+    }
+
+    async function doVerifyOtp() {
+      const otp = el('otp').value.trim();
+      const transactionId = el('transactionId').value.trim();
+      if (!otp || otp.length !== 6) throw new Error('Enter 6-digit OTP');
+      if (!transactionId) throw new Error('transactionId missing — run Send OTP first');
+      setFlowStep(3);
+      setHint('Step 3 — Verifying OTP…');
+      const { ok, data } = await partnerPost('/aadhaar/otp/verify', {
+        aadhaarNumber: getAadhaar(),
+        otp,
+        transactionId,
+        externalReferenceId: el('externalRef').value.trim() || undefined
+      });
+      if (!ok || !data.success) throw new Error(data.message || 'Verify failed');
+      setFlowStep(4, { doneUpTo: 3 });
+      setHint('Step 4 — Verified! Optional: GET record below.');
+      return data;
+    }
+
+    async function doGetRecord() {
+      const id = el('verificationId').value.trim();
+      if (!id) throw new Error('verificationId empty — verify first or paste ID');
+      setFlowStep(4);
+      setHint('Step 4 — Fetching verification record…');
+      const { ok, data } = await partnerGet('/aadhaar/verification/' + encodeURIComponent(id));
+      if (!ok) throw new Error(data.message || 'GET failed');
+      setFlowStep('done', { doneUpTo: 4 });
+      setHint('Complete flow finished.');
+      return data;
+    }
+
+    async function withGuard(fn) {
+      if (busy) return;
+      try {
+        setBusy(true);
+        await fn();
+        saveConfig();
+      } catch (err) {
+        showResponse({ success: false, message: err.message }, 0, 0);
+        setHint('Error: ' + err.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    el('btnSaveConfig').addEventListener('click', () => {
+      saveConfig();
+      showResponse({ success: true, message: 'Saved to browser localStorage.' }, 200, 0);
+    });
+    el('btnClearConfig').addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      el('tenantInfo').textContent = '';
+      showResponse({ success: true, message: 'Cleared saved settings.' }, 200, 0);
+    });
     el('showPartnerToken').addEventListener('change', (e) => {
       el('partnerToken').type = e.target.checked ? 'text' : 'password';
     });
 
-    el('btnAdminLogin').addEventListener('click', async () => {
-      try {
-        const root = apiRoot();
-        const email = el('adminEmail').value.trim();
-        const password = el('adminPassword').value;
-        if (!email || !password) throw new Error('Email and password required');
-        const { data, ok } = await request('POST', root + '/api/auth/login', { 'Content-Type': 'application/json' }, { email, password });
-        if (data.token) {
-          el('adminToken').value = data.token;
-          saveConfig();
+    el('aadhaarNumber').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 12);
+    });
+    el('otp').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+    el('btnTestKey').addEventListener('click', () => withGuard(async () => {
+      setHint('Testing API key…');
+      const { ok, data } = await partnerGet('/me');
+      if (!ok) throw new Error(data.message || 'Invalid API key');
+      const t = data.tenant;
+      el('tenantInfo').innerHTML = 'Connected: <span class="tenant-badge">' + (t.name || t.tenantId) + '</span>';
+      saveConfig({ tenantName: t.name || t.tenantId });
+      setHint('API key valid for tenant "' + t.tenantId + '". Ready to test.');
+      setFlowStep(1);
+    }));
+
+    el('btnEntry').addEventListener('click', () => withGuard(doEntry));
+    el('btnSendOtp').addEventListener('click', () => withGuard(doSendOtp));
+    el('btnVerifyOtp').addEventListener('click', () => withGuard(doVerifyOtp));
+    el('btnGetVerification').addEventListener('click', () => withGuard(doGetRecord));
+
+    el('btnRunFlow').addEventListener('click', () => withGuard(async () => {
+      const entry = await doEntry();
+      if (entry.stop) return;
+      await doSendOtp();
+    }));
+
+    el('btnVerifyAndGet').addEventListener('click', () => withGuard(async () => {
+      await doVerifyOtp();
+      if (el('verificationId').value.trim()) await doGetRecord();
+    }));
+
+    el('btnAdminLogin').addEventListener('click', () => withGuard(async () => {
+      const { data, ok } = await request('POST', apiRoot() + '/api/auth/login',
+        { 'Content-Type': 'application/json' },
+        { email: el('adminEmail').value.trim(), password: el('adminPassword').value });
+      if (data.token) { el('adminToken').value = data.token; saveConfig(); }
+      if (!ok) throw new Error(data.error || data.message || 'Login failed');
+      setHint('Admin JWT saved.');
+    }));
+
+    el('btnCreateTenant').addEventListener('click', () => withGuard(async () => {
+      const body = {
+        tenantId: el('newTenantId').value.trim(),
+        name: el('newTenantName').value.trim(),
+        portalEmail: el('portalEmail').value.trim(),
+        portalPassword: el('portalPassword').value.trim() || undefined
+      };
+      const { data, ok } = await request('POST', apiRoot() + '/api/admin/partners', adminHeaders(), body);
+      if (!ok) throw new Error(data.message || 'Create failed');
+      if (data.data?.apiKey) {
+        el('partnerToken').value = data.data.apiKey;
+        saveConfig({ tenantName: data.data.tenantId });
+        el('tenantInfo').innerHTML = 'Created — API key filled. <span class="tenant-badge">' + data.data.tenantId + '</span>';
+        if (data.data.portalPassword) {
+          showResponse({
+            success: true,
+            message: 'Tenant created. Save portal password — shown once.',
+            apiKey: data.data.apiKey,
+            portalEmail: data.data.portalEmail,
+            portalPassword: data.data.portalPassword
+          }, 201, 0);
         }
-        if (!ok) throw new Error(data.error || data.message || 'Login failed');
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
       }
-    });
+      setHint('Tenant created. API key auto-filled — click Test API key.');
+    }));
 
-    el('btnCreateTenant').addEventListener('click', async () => {
-      try {
-        const root = apiRoot();
-        const body = {
-          tenantId: el('newTenantId').value.trim(),
-          name: el('newTenantName').value.trim(),
-          contactEmail: el('newTenantEmail').value.trim() || undefined
-        };
-        const { data, ok } = await request('POST', root + '/api/admin/partners', adminHeaders(), body);
-        if (data && data.data && data.data.apiKey) {
-          el('partnerToken').value = data.data.apiKey;
-          saveConfig();
-        }
-        if (!ok) throw new Error(data.message || 'Create tenant failed');
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnListTenants').addEventListener('click', async () => {
-      try {
-        const root = apiRoot();
-        await request('GET', root + '/api/admin/partners', adminHeaders());
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnEntry').addEventListener('click', async () => {
-      try {
-        setStep('entry');
-        const root = apiRoot();
-        await request('POST', root + '/api/v1/partner/aadhaar/entry', partnerHeaders(), sharedBody());
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnSendOtp').addEventListener('click', async () => {
-      try {
-        setStep('send');
-        const root = apiRoot();
-        await request('POST', root + '/api/v1/partner/aadhaar/otp/send', partnerHeaders(), {
-          ...sharedBody(),
-          reason: 'KYC Verification'
-        });
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnVerifyOtp').addEventListener('click', async () => {
-      try {
-        setStep('verify');
-        const root = apiRoot();
-        await request('POST', root + '/api/v1/partner/aadhaar/otp/verify', partnerHeaders(), {
-          aadhaarNumber: el('aadhaarNumber').value.replace(/\s/g, ''),
-          otp: el('otp').value.trim(),
-          transactionId: el('transactionId').value.trim(),
-          externalReferenceId: el('externalRef').value.trim() || undefined
-        });
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnGetVerification').addEventListener('click', async () => {
-      try {
-        const root = apiRoot();
-        const id = el('verificationId').value.trim();
-        if (!id) throw new Error('Enter verificationId');
-        await request('GET', root + '/api/v1/partner/aadhaar/verification/' + encodeURIComponent(id), partnerHeaders());
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
-
-    el('btnRunFlow').addEventListener('click', async () => {
-      try {
-        setStep('entry');
-        const root = apiRoot();
-        const headers = partnerHeaders();
-        const body = sharedBody();
-
-        const entry = await request('POST', root + '/api/v1/partner/aadhaar/entry', headers, body);
-        if (entry.data && entry.data.cached) {
-          document.querySelector('[data-step="entry"]').classList.add('done');
-          return;
-        }
-
-        setStep('send');
-        const send = await request('POST', root + '/api/v1/partner/aadhaar/otp/send', headers, { ...body, reason: 'KYC Verification' });
-        if (send.data && send.data.cached) {
-          document.querySelector('[data-step="send"]').classList.add('done');
-          return;
-        }
-
-        showResponse({
-          success: true,
-          message: 'OTP sent (if Sandbox succeeded). Enter OTP and click Verify OTP.',
-          transactionId: send.data && send.data.data && send.data.data.transactionId
-        }, send.status, null);
-        setStep('verify');
-      } catch (err) {
-        showResponse({ success: false, message: err.message }, 0, 0);
-      }
-    });
+    el('btnListTenants').addEventListener('click', () => withGuard(async () => {
+      await request('GET', apiRoot() + '/api/admin/partners', adminHeaders());
+    }));
 
     el('apiRoot').value = el('apiRoot').value || 'https://adhar-pan-kyc.onrender.com';
     loadConfig();
-    setStep('config');
+    setFlowStep(1);
   </script>
 </body>
 </html>

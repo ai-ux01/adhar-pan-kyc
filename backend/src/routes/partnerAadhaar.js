@@ -53,6 +53,21 @@ async function auditPartnerCall(req, action, details = {}) {
 }
 
 /**
+ * GET /api/v1/partner/me
+ * Validate API key or partner JWT and return tenant info.
+ */
+router.get('/me', (req, res) => {
+  res.json({
+    success: true,
+    tenant: {
+      tenantId: req.tenant.tenantId,
+      name: req.tenant.name,
+      rateLimitPerMinute: req.tenant.rateLimitPerMinute
+    }
+  });
+});
+
+/**
  * POST /api/v1/partner/aadhaar/entry
  * Check tenant cache for prior successful verification.
  */

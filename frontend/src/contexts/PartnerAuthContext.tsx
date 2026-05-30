@@ -8,13 +8,16 @@ export interface PartnerTenant {
   contactEmail?: string;
   portalEmail?: string;
   rateLimitPerMinute?: number;
+  authMode?: 'portal' | 'apiKey';
 }
 
 interface PartnerAuthContextType {
   tenant: PartnerTenant | null;
   loading: boolean;
   isAuthenticated: boolean;
+  authMode: 'portal' | 'apiKey' | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  loginWithApiKey: (apiKey: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
 }
 
@@ -34,6 +37,26 @@ const getStoredPartnerTenant = (): PartnerTenant | null => {
   }
 };
 
+async function fetchPartnerSession(token: string): Promise<PartnerTenant> {
+  const isApiKey = token.startsWith('ak_live_');
+  const url = isApiKey
+    ? `${getApiBaseURL()}/v1/partner/me`
+    : `${getApiBaseURL()}/partner-auth/me`;
+
+  const res = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.data?.tenant) {
+    throw new Error('Invalid session response');
+  }
+
+  return {
+    ...res.data.tenant,
+    authMode: isApiKey ? 'apiKey' : 'portal'
+  };
+}
+
 export const PartnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [tenant, setTenant] = useState<PartnerTenant | null>(getStoredPartnerTenant());
   const [loading, setLoading] = useState(true);
@@ -47,12 +70,8 @@ export const PartnerAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
 
       try {
-        const res = await axios.get(`${getApiBaseURL()}/partner-auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.data?.tenant) {
-          setTenant(res.data.tenant);
-        }
+        const tenantData = await fetchPartnerSession(token);
+        setTenant(tenantData);
       } catch {
         localStorage.removeItem('partner_token');
         sessionStorage.removeItem('partner_token');
@@ -67,6 +86,13 @@ export const PartnerAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
     bootstrap();
   }, []);
 
+  const persistSession = (token: string, tenantData: PartnerTenant, rememberMe: boolean) => {
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('partner_token', token);
+    storage.setItem('partner_tenant', JSON.stringify(tenantData));
+    setTenant(tenantData);
+  };
+
   const login = async (email: string, password: string, rememberMe = false) => {
     const res = await axios.post(`${getApiBaseURL()}/partner-auth/login`, { email, password });
     const { token, tenant: tenantData } = res.data;
@@ -75,10 +101,17 @@ export const PartnerAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
       throw new Error('Invalid login response');
     }
 
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('partner_token', token);
-    storage.setItem('partner_tenant', JSON.stringify(tenantData));
-    setTenant(tenantData);
+    persistSession(token, { ...tenantData, authMode: 'portal' }, rememberMe);
+  };
+
+  const loginWithApiKey = async (apiKey: string, rememberMe = false) => {
+    const trimmed = apiKey.trim();
+    if (!trimmed.startsWith('ak_live_')) {
+      throw new Error('API key must start with ak_live_');
+    }
+
+    const tenantData = await fetchPartnerSession(trimmed);
+    persistSession(trimmed, tenantData, rememberMe);
   };
 
   const logout = () => {
@@ -95,7 +128,9 @@ export const PartnerAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
         tenant,
         loading,
         isAuthenticated: !!tenant && !!getStoredPartnerToken(),
+        authMode: tenant?.authMode || null,
         login,
+        loginWithApiKey,
         logout
       }}
     >

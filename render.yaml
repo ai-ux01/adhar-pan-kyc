@@ -18,6 +18,8 @@ services:
         sync: false
       - key: PARTNER_AADHAAR_HASH_PEPPER
         sync: false
+      - key: PARTNER_ALLOWED_ORIGINS
+        sync: false
       - key: JWT_EXPIRE
         value: 30d
       - key: SENDGRID_API_KEY

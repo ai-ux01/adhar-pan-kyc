@@ -30,7 +30,20 @@ const getAllowedOrigins = () => {
     if (process.env.FRONTEND_URL) {
       origins.push(normalizeOrigin(process.env.FRONTEND_URL));
     }
-    
+
+    // Partner integrations / HTML tester / third-party browser apps
+    if (process.env.PARTNER_ALLOWED_ORIGINS) {
+      origins.push(
+        ...process.env.PARTNER_ALLOWED_ORIGINS.split(',').map((origin) => normalizeOrigin(origin.trim()))
+      );
+    }
+
+    // Local partner-api-tester.html (python -m http.server 8080)
+    origins.push('http://localhost:8080', 'http://127.0.0.1:8080');
+
+    // Render-hosted frontend (same project URL as API host)
+    origins.push('https://adhar-pan-kyc.onrender.com');
+
     // Always add Vercel/Netlify/Amplify regex patterns for flexibility
     origins.push(
       /^https:\/\/.*\.vercel\.app$/,
