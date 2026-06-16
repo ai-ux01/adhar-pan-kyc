@@ -7,9 +7,7 @@ import {
   XCircleIcon,
   CameraIcon,
   PhotoIcon,
-  ArrowPathIcon,
-  EyeIcon,
-  EyeSlashIcon
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { validateAadhaar, filterAadhaarInput } from '../../utils/validation';
 import api from '../../services/api';
@@ -24,7 +22,6 @@ const QrVerification: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<VerificationStep>({ step: 'enter-details' });
   const [isLoading, setIsLoading] = useState(false);
   const [aadhaarNumber, setAadhaarNumber] = useState('');
-  const [showAadhaar, setShowAadhaar] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [otp, setOtp] = useState('');
   const [transactionId, setTransactionId] = useState('');
@@ -369,32 +366,16 @@ const QrVerification: React.FC = () => {
                 <label htmlFor="aadhaar" className="block text-sm font-medium text-gray-700 mb-2">
                   Aadhaar Number
                 </label>
-                <div className="relative">
-                  <input
-                    type={showAadhaar ? 'text' : 'password'}
-                    id="aadhaar"
-                    value={aadhaarNumber}
-                    onChange={(e) => setAadhaarNumber(filterAadhaarInput(e.target.value))}
-                    placeholder="1234 5678 9012"
-                    maxLength={12}
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAadhaar(!showAadhaar)}
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
-                      title={showAadhaar ? "Hide Aadhaar Number" : "Show Aadhaar Number"}
-                    >
-                      {showAadhaar ? (
-                        <EyeSlashIcon className="w-5 h-5" />
-                      ) : (
-                        <EyeIcon className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="text"
+                  id="aadhaar"
+                  value={aadhaarNumber}
+                  onChange={(e) => setAadhaarNumber(filterAadhaarInput(e.target.value))}
+                  placeholder="XXXX XXXX XXXX"
+                  maxLength={14}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
               </div>
 
               {/* Consent Checkbox - same as main Aadhaar verification */}

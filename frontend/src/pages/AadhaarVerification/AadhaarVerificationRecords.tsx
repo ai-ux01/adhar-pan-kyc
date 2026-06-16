@@ -14,6 +14,7 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
   EyeIcon,
+  EyeSlashIcon,
   CalendarIcon,
   ArrowLeftIcon,
   MagnifyingGlassIcon,
@@ -312,6 +313,23 @@ const AadhaarVerificationRecords: React.FC = () => {
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
   const [selfieUploadKey, setSelfieUploadKey] = useState(0);
+  const [revealedAadhaars, setRevealedAadhaars] = useState<Record<string, boolean>>({});
+
+  const toggleRevealAadhaar = (id: string) => {
+    setRevealedAadhaars(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const renderAadhaarNumber = (id: string, num: string) => {
+    if (!num) return '-';
+    const isRevealed = revealedAadhaars[id];
+    if (isRevealed) {
+      return num.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3');
+    }
+    return `•••• •••• ${num.slice(-4)}`;
+  };
 
   // Extract unique dynamic field labels from records
   const extractDynamicFieldLabels = (records: VerificationRecord[]) => {
@@ -1238,12 +1256,24 @@ const AadhaarVerificationRecords: React.FC = () => {
                     {records.map((record, index) => (
                       <tr key={record._id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300 transform hover:scale-[1.01]">
                         <td className="px-4 py-6 whitespace-nowrap text-sm font-bold text-gray-900 font-mono sticky left-0 bg-white z-10">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">
-                            {record.aadhaarNumber ? 
-                              record.aadhaarNumber.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3') : 
-                              '-'
-                            }
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">
+                              {renderAadhaarNumber(record._id, record.aadhaarNumber)}
+                            </span>
+                            {record.aadhaarNumber && (
+                              <button
+                                onClick={() => toggleRevealAadhaar(record._id)}
+                                className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
+                                title={revealedAadhaars[record._id] ? "Hide Aadhaar Number" : "Show Aadhaar Number"}
+                              >
+                                {revealedAadhaars[record._id] ? (
+                                  <EyeSlashIcon className="w-4 h-4" />
+                                ) : (
+                                  <EyeIcon className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-6 whitespace-nowrap text-sm font-semibold text-gray-900 sticky left-32 bg-white z-10">
                           <span className="inline-flex items-center px-3 py-1 rounded-full bg-pink-100 text-pink-800">
@@ -1387,12 +1417,24 @@ const AadhaarVerificationRecords: React.FC = () => {
                     <div className="mb-4">
                       <div className="mb-2">
                         <span className="text-gray-500 font-semibold">Aadhaar Number:</span>
-                        <span className="ml-2 font-bold text-indigo-600 font-mono">
-                          {record.aadhaarNumber ? 
-                            record.aadhaarNumber.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3') : 
-                            '-'
-                          }
-                      </span>
+                        <div className="inline-flex items-center space-x-2 ml-2">
+                          <span className="font-bold text-indigo-600 font-mono">
+                            {renderAadhaarNumber(record._id, record.aadhaarNumber)}
+                          </span>
+                          {record.aadhaarNumber && (
+                            <button
+                              onClick={() => toggleRevealAadhaar(record._id)}
+                              className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
+                              title={revealedAadhaars[record._id] ? "Hide Aadhaar Number" : "Show Aadhaar Number"}
+                            >
+                              {revealedAadhaars[record._id] ? (
+                                <EyeSlashIcon className="w-4 h-4" />
+                              ) : (
+                                <EyeIcon className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="mb-2">
                         <span className="text-gray-500 font-semibold">Name:</span>
@@ -1637,12 +1679,24 @@ const AadhaarVerificationRecords: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Aadhaar Number</label>
-                          <p className="mt-1 text-sm text-gray-900 font-mono">
-                          {selectedRecord.aadhaarNumber ? 
-                            selectedRecord.aadhaarNumber.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3') : 
-                              '-'
-                            }
-                          </p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <p className="text-sm text-gray-900 font-mono">
+                              {renderAadhaarNumber(selectedRecord._id, selectedRecord.aadhaarNumber)}
+                            </p>
+                            {selectedRecord.aadhaarNumber && (
+                              <button
+                                onClick={() => toggleRevealAadhaar(selectedRecord._id)}
+                                className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
+                                title={revealedAadhaars[selectedRecord._id] ? "Hide Aadhaar Number" : "Show Aadhaar Number"}
+                              >
+                                {revealedAadhaars[selectedRecord._id] ? (
+                                  <EyeSlashIcon className="w-4 h-4" />
+                                ) : (
+                                  <EyeIcon className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Name</label>
