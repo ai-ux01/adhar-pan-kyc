@@ -13,7 +13,9 @@ import {
   CalendarIcon,
   TrashIcon,
   CameraIcon,
-  PhotoIcon
+  PhotoIcon,
+  EyeIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline';
 import { validateAadhaar, filterAadhaarInput, getValidationStatus } from '../../utils/validation';
 import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
@@ -59,6 +61,7 @@ const AadhaarVerification: React.FC = () => {
   const [cameraMode, setCameraMode] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [showAadhaar, setShowAadhaar] = useState(false);
 
   // Email validation function
   const isValidEmail = (email: string): boolean => {
@@ -607,6 +610,7 @@ const AadhaarVerification: React.FC = () => {
     setCurrentStep({ step: 'enter-details' });
     setAadhaarNumber('');
     setConsentAccepted(false);
+    setShowAadhaar(false);
     setOtp('');
     setTransactionId('');
     setResendCooldown(0);
@@ -851,12 +855,12 @@ const AadhaarVerification: React.FC = () => {
                       </label>
                       <div className="relative">
                         <input
-                          type="text"
+                          type={showAadhaar ? 'text' : 'password'}
                           id="aadhaarNumber"
                           value={aadhaarNumber}
                           onChange={(e) => setAadhaarNumber(filterAadhaarInput(e.target.value))}
                           placeholder="1234 5678 9012"
-                          className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-base font-medium transition-all duration-300 ${
+                          className={`w-full px-3 py-2 pr-16 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-base font-medium transition-all duration-300 ${
                             aadhaarNumber.length === 0 
                               ? 'border-gray-200 focus:border-blue-500' 
                               : aadhaarNumber.length === 12 && getAadhaarValidationStatus().status === 'valid'
@@ -868,17 +872,31 @@ const AadhaarVerification: React.FC = () => {
                           maxLength={12}
                           required
                         />
-                        {aadhaarNumber.length > 0 && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            {aadhaarNumber.length === 12 && getAadhaarValidationStatus().status === 'valid' ? (
-                              <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                            ) : aadhaarNumber.length === 12 && getAadhaarValidationStatus().status === 'invalid' ? (
-                              <XCircleIcon className="w-5 h-5 text-red-500" />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAadhaar(!showAadhaar)}
+                            className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors duration-200"
+                            title={showAadhaar ? "Hide Aadhaar Number" : "Show Aadhaar Number"}
+                          >
+                            {showAadhaar ? (
+                              <EyeSlashIcon className="w-5 h-5" />
                             ) : (
-                              <ClockIcon className="w-5 h-5 text-yellow-500" />
+                              <EyeIcon className="w-5 h-5" />
                             )}
-                          </div>
-                        )}
+                          </button>
+                          {aadhaarNumber.length > 0 && (
+                            <>
+                              {aadhaarNumber.length === 12 && getAadhaarValidationStatus().status === 'valid' ? (
+                                <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                              ) : aadhaarNumber.length === 12 && getAadhaarValidationStatus().status === 'invalid' ? (
+                                <XCircleIcon className="w-5 h-5 text-red-500" />
+                              ) : (
+                                <ClockIcon className="w-5 h-5 text-yellow-500" />
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-1 text-xs text-center">
                         {aadhaarNumber.length === 0 ? (
