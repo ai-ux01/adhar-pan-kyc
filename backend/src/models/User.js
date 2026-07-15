@@ -48,6 +48,10 @@ const UserSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
     },
+    enableCustomFields: {
+      type: Boolean,
+      default: false,
+    },
   },
   isActive: {
     type: Boolean,
@@ -107,6 +111,7 @@ const UserSchema = new mongoose.Schema({
       mimetype: String,
       size: Number,
       uploadedAt: Date,
+      data: String,
     },
     companyName: {
       type: String,
@@ -171,7 +176,7 @@ UserSchema.index({ isActive: 1 });
 // Encrypt password using bcrypt
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
-    next();
+    return next();
   }
 
   const salt = await bcrypt.genSalt(10);

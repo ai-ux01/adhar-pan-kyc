@@ -16344,3 +16344,262 @@
     '    at router.process_params (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/express/lib/router/index.js:346:12)',
   timestamp: '2026-02-12 07:49:09'
 }
+{
+  service: 'kyc-aadhaar-api',
+  reason: TopologyDescription {
+    type: 'ReplicaSetNoPrimary',
+    servers: Map(3) {
+      'ac-apfrhxs-shard-00-01.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-01.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 1393074094,
+        lastWriteDate: 0,
+        error: MongoNetworkError: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-01.ahxupto.mongodb.net
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:367:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:623:12)
+            at TLSSocket.emit (node:events:508:20)
+            at emitErrorNT (node:internal/streams/destroy:170:8)
+            at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+            at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+          cause: Error: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-01.ahxupto.mongodb.net
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:121:26) {
+            errno: -3008,
+            code: 'ENOTFOUND',
+            syscall: 'getaddrinfo',
+            hostname: 'ac-apfrhxs-shard-00-01.ahxupto.mongodb.net'
+          },
+          Symbol(errorLabels): Set(1) { 'ResetPool' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      },
+      'ac-apfrhxs-shard-00-02.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-02.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 1393074095,
+        lastWriteDate: 0,
+        error: MongoNetworkError: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-02.ahxupto.mongodb.net
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:367:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:623:12)
+            at TLSSocket.emit (node:events:508:20)
+            at emitErrorNT (node:internal/streams/destroy:170:8)
+            at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+            at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+          cause: Error: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-02.ahxupto.mongodb.net
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:121:26) {
+            errno: -3008,
+            code: 'ENOTFOUND',
+            syscall: 'getaddrinfo',
+            hostname: 'ac-apfrhxs-shard-00-02.ahxupto.mongodb.net'
+          },
+          Symbol(errorLabels): Set(1) { 'ResetPool' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      },
+      'ac-apfrhxs-shard-00-00.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-00.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 1393074096,
+        lastWriteDate: 0,
+        error: MongoNetworkError: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-00.ahxupto.mongodb.net
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:367:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:623:12)
+            at TLSSocket.emit (node:events:508:20)
+            at emitErrorNT (node:internal/streams/destroy:170:8)
+            at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+            at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+          cause: Error: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-00.ahxupto.mongodb.net
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:121:26) {
+            errno: -3008,
+            code: 'ENOTFOUND',
+            syscall: 'getaddrinfo',
+            hostname: 'ac-apfrhxs-shard-00-00.ahxupto.mongodb.net'
+          },
+          Symbol(errorLabels): Set(1) { 'ResetPool' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      }
+    },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: 'atlas-2jawrs-shard-0',
+    maxElectionId: new ObjectId("7fffffff0000000000000253"),
+    maxSetVersion: 187,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  },
+  code: undefined,
+  level: 'error',
+  message: 'Health check error: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-01.ahxupto.mongodb.net',
+  stack: 'MongoServerSelectionError: getaddrinfo ENOTFOUND ac-apfrhxs-shard-00-01.ahxupto.mongodb.net\n' +
+    '    at Timeout._onTimeout (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/sdam/topology.js:278:38)\n' +
+    '    at listOnTimeout (node:internal/timers:605:17)\n' +
+    '    at process.processTimers (node:internal/timers:541:7)',
+  timestamp: '2026-06-17 17:00:05',
+  Symbol(errorLabels): Set(0) {}
+}
+{
+  service: 'kyc-aadhaar-api',
+  reason: TopologyDescription {
+    type: 'ReplicaSetNoPrimary',
+    servers: Map(3) {
+      'ac-apfrhxs-shard-00-01.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-01.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 2032906693,
+        lastWriteDate: 0,
+        error: MongoNetworkTimeoutError: connection timed out
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:369:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:622:28)
+            at TLSSocket.emit (node:events:508:20)
+            at Socket._onTimeout (node:net:610:8)
+            at listOnTimeout (node:internal/timers:605:17)
+            at process.processTimers (node:internal/timers:541:7) {
+          Symbol(errorLabels): Set(2) { 'ResetPool', 'InterruptInUseConnections' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      },
+      'ac-apfrhxs-shard-00-02.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-02.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 2032906693,
+        lastWriteDate: 0,
+        error: MongoNetworkTimeoutError: connection timed out
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:369:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:622:28)
+            at TLSSocket.emit (node:events:508:20)
+            at Socket._onTimeout (node:net:610:8)
+            at listOnTimeout (node:internal/timers:605:17)
+            at process.processTimers (node:internal/timers:541:7) {
+          Symbol(errorLabels): Set(2) { 'ResetPool', 'InterruptInUseConnections' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      },
+      'ac-apfrhxs-shard-00-00.ahxupto.mongodb.net:27017' => ServerDescription {
+        address: 'ac-apfrhxs-shard-00-00.ahxupto.mongodb.net:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        lastUpdateTime: 2032906693,
+        lastWriteDate: 0,
+        error: MongoNetworkTimeoutError: connection timed out
+            at connectionFailureError (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:369:20)
+            at TLSSocket.<anonymous> (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/cmap/connect.js:290:22)
+            at Object.onceWrapper (node:events:622:28)
+            at TLSSocket.emit (node:events:508:20)
+            at Socket._onTimeout (node:net:610:8)
+            at listOnTimeout (node:internal/timers:605:17)
+            at process.processTimers (node:internal/timers:541:7) {
+          Symbol(errorLabels): Set(2) { 'ResetPool', 'InterruptInUseConnections' }
+        },
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null
+      }
+    },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: 'atlas-2jawrs-shard-0',
+    maxElectionId: new ObjectId("7fffffff0000000000000255"),
+    maxSetVersion: 187,
+    commonWireVersion: 0,
+    logicalSessionTimeoutMinutes: null
+  },
+  code: undefined,
+  level: 'error',
+  message: 'Health check error: connection timed out',
+  stack: 'MongoServerSelectionError: connection timed out\n' +
+    '    at Timeout._onTimeout (/Users/anshulkumar/adhar-pan-kyc/backend/node_modules/mongodb/lib/sdam/topology.js:278:38)\n' +
+    '    at listOnTimeout (node:internal/timers:605:17)\n' +
+    '    at process.processTimers (node:internal/timers:541:7)',
+  timestamp: '2026-06-25 03:00:55',
+  Symbol(errorLabels): Set(0) {}
+}

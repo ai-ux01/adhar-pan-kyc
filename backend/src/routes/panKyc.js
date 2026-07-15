@@ -119,13 +119,14 @@ router.get('/records', protect, async (req, res) => {
     const dateFilter = req.query.dateFilter || 'all';
     const dateFrom = req.query.dateFrom || '';
     const dateTo = req.query.dateTo || '';
+    const timezoneOffset = req.query.timezoneOffset || '0';
     const skip = isExport ? 0 : (page - 1) * limit;
 
     const match = { userId: new mongoose.Types.ObjectId(req.user.id) };
     if (statusFilter !== 'all') {
       match.status = statusFilter;
     }
-    applyCreatedAtDateFilter(match, { dateFilter, dateFrom, dateTo });
+    applyCreatedAtDateFilter(match, { dateFilter, dateFrom, dateTo, timezoneOffset });
 
     const [facetResult] = await PanKyc.aggregate([
       { $match: match },

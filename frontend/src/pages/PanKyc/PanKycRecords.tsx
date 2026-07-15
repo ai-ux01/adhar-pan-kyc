@@ -431,11 +431,13 @@ const PanKycRecords: React.FC = () => {
           <RecordDateRangeFilters
             accent="blue"
             dateFilter={dateFilter}
-            onDateFilterChange={setDateFilter}
             dateFrom={dateFrom}
             dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
+            onChange={(vals) => {
+              setDateFilter(vals.dateFilter);
+              setDateFrom(vals.dateFrom);
+              setDateTo(vals.dateTo);
+            }}
             onClear={() => {
               setDateFilter('all');
               setDateFrom('');

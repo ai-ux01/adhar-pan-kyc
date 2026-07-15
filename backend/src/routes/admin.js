@@ -349,7 +349,8 @@ router.get('/audit-logs', protect, authorize('admin'), async (req, res) => {
       endDate = '',
       dateFrom = '',
       dateTo = '',
-      dateFilter = 'all'
+      dateFilter = 'all',
+      timezoneOffset = '0'
     } = req.query;
     const skip = (page - 1) * limit;
 
@@ -362,7 +363,8 @@ router.get('/audit-logs', protect, authorize('admin'), async (req, res) => {
     applyCreatedAtDateFilter(query, {
       dateFilter,
       dateFrom: dateFrom || startDate,
-      dateTo: dateTo || endDate
+      dateTo: dateTo || endDate,
+      timezoneOffset
     });
 
     const logs = await Audit.find(query)
@@ -1664,6 +1666,67 @@ router.patch('/users/:id/branding', protect, authorize('admin'), async (req, res
   }
 });
 
+// Update QR Code custom fields setting (admin only)
+router.patch('/users/:id/qr-custom-fields', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { enableCustomFields } = req.body;
+    
+    if (enableCustomFields === undefined || typeof enableCustomFields !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'enableCustomFields must be a boolean value'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (!user.qrCode) {
+      user.qrCode = {};
+    }
+    
+    user.qrCode.enableCustomFields = enableCustomFields;
+    await user.save();
+
+    // Log the event
+    await logEvent({
+      userId: req.user.id,
+      action: 'user_qr_custom_fields_updated',
+      module: 'admin',
+      resource: 'user',
+      resourceId: user._id,
+      details: {
+        targetUserEmail: user.email,
+        enableCustomFields
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.json({
+      success: true,
+      message: 'QR Code custom fields setting updated successfully',
+      data: {
+        id: user._id,
+        email: user.email,
+        qrCode: user.qrCode
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating QR Code custom fields setting:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update QR Code custom fields setting',
+      error: error.message
+    });
+  }
+});
+
 // Upload user logo (admin only)
 router.post('/users/:id/logo', protect, authorize('admin'), upload.single('logo'), async (req, res) => {
   try {
@@ -1704,13 +1767,19 @@ router.post('/users/:id/logo', protect, authorize('admin'), upload.single('logo'
     if (!user.branding) user.branding = {};
     const backendDir = path.join(__dirname, '..', '..');
     const relativePath = path.relative(backendDir, req.file.path);
+    
+    // Read file and convert to base64 Data URI
+    const logoBase64 = fs.readFileSync(req.file.path, { encoding: 'base64' });
+    const logoDataUri = `data:${req.file.mimetype};base64,${logoBase64}`;
+    
     user.branding.logo = {
       filename: req.file.filename,
       originalName: req.file.originalname,
       path: relativePath.replace(/\\/g, '/'), // Normalize path separators to forward slashes
       mimetype: req.file.mimetype,
       size: req.file.size,
-      uploadedAt: new Date()
+      uploadedAt: new Date(),
+      data: logoDataUri
     };
 
     await user.save();
@@ -1811,6 +1880,26 @@ router.get('/users/:id/logo', async (req, res) => {
     
     // Check if logo path exists
     if (!logoPath) {
+      if (user.branding.logo.data) {
+        res.set({
+          'Access-Control-Allow-Origin': getAllowedOrigin(req.headers.origin),
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Methods': 'GET',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Cross-Origin-Embedder-Policy': 'unsafe-none',
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        });
+        const matches = user.branding.logo.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const contentType = matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          res.set('Content-Type', contentType);
+          return res.send(buffer);
+        }
+      }
       logger.warn(`Logo path not found for user ${req.params.id}`);
       return res.status(404).json({
         success: false,
@@ -1826,6 +1915,7 @@ router.get('/users/:id/logo', async (req, res) => {
     logger.info(`Logo path resolution for user ${req.params.id}: normalized = ${normalizedPath}, absolute = ${absolutePath}`);
     
     // Check if file exists
+    let useBase64Fallback = false;
     if (!fs.existsSync(absolutePath)) {
       logger.warn(`Logo file not found at path: ${absolutePath} for user ${req.params.id}`);
       const filename = user.branding.logo.filename;
@@ -1833,12 +1923,16 @@ router.get('/users/:id/logo', async (req, res) => {
         const fallbackPath = path.join(__dirname, '..', '..', 'uploads', 'logos', filename);
         if (fs.existsSync(fallbackPath)) {
           absolutePath = fallbackPath;
+        } else if (user.branding.logo.data) {
+          useBase64Fallback = true;
         } else {
           return res.status(404).json({
             success: false,
             message: 'Logo file not found on server'
           });
         }
+      } else if (user.branding.logo.data) {
+        useBase64Fallback = true;
       } else {
         return res.status(404).json({
           success: false,
@@ -1859,6 +1953,21 @@ router.get('/users/:id/logo', async (req, res) => {
       'Pragma': 'no-cache',
       'Expires': '0'
     });
+
+    if (useBase64Fallback) {
+      const matches = user.branding.logo.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const contentType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.set('Content-Type', contentType);
+        return res.send(buffer);
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: 'Logo file not found on server'
+        });
+      }
+    }
 
     res.sendFile(absolutePath);
   } catch (error) {
@@ -2440,13 +2549,35 @@ router.get('/qr/:code', async (req, res) => {
       });
     }
 
+    const CustomField = require('../models/CustomField');
+    let customFields = [];
+    
+    if (user.qrCode?.enableCustomFields) {
+      // Get all active custom fields that apply to verification
+      const allFields = await CustomField.find({
+        isActive: true,
+        appliesTo: { $in: ['verification', 'both'] }
+      }).sort({ displayOrder: 1 });
+      
+      // Filter to only include fields enabled for this user
+      if (user.role === 'admin') {
+        customFields = allFields;
+      } else {
+        customFields = allFields.filter(field => 
+          user.enabledCustomFields && user.enabledCustomFields.map(id => String(id)).includes(String(field._id))
+        );
+      }
+    }
+
     res.json({
       success: true,
       data: {
         userId: user._id,
         userName: user.name,
         companyName: user?.branding?.companyName || 'the Company',
-        hasSelfieAccess: user.moduleAccess && user.moduleAccess.includes('selfie-upload')
+        hasSelfieAccess: user.moduleAccess && user.moduleAccess.includes('selfie-upload'),
+        enableCustomFields: user.qrCode?.enableCustomFields || false,
+        customFields: customFields
       }
     });
   } catch (error) {

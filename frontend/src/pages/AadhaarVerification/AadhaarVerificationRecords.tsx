@@ -227,16 +227,35 @@ function buildDynamicExportColumns(
   rows: VerificationRecord[],
   apiKeys: DynamicFieldKey[]
 ): DynamicExportColumn[] {
-  if (apiKeys.length > 0) {
-    return apiKeys.map((k) => ({
-      header: String(k.fieldLabel || k.fieldName || 'Field').trim() || 'Field',
-      matchLabels: [k.fieldLabel, k.fieldName].filter(Boolean) as string[]
-    }));
-  }
-  return collectDynamicLabelsFromRows(rows).map((label) => ({
-    header: label,
-    matchLabels: [label]
-  }));
+  const columns: DynamicExportColumn[] = [];
+  const addedHeaders = new Set<string>();
+
+  // 1. Add all keys from API first (maintains order)
+  apiKeys.forEach((k) => {
+    const header = String(k.fieldLabel || k.fieldName || '').trim();
+    if (header && !addedHeaders.has(header.toLowerCase())) {
+      addedHeaders.add(header.toLowerCase());
+      columns.push({
+        header,
+        matchLabels: [k.fieldLabel, k.fieldName].filter(Boolean) as string[]
+      });
+    }
+  });
+
+  // 2. Add any additional labels found in the actual data rows
+  const rowLabels = collectDynamicLabelsFromRows(rows);
+  rowLabels.forEach((label) => {
+    const cleanLabel = String(label || '').trim();
+    if (cleanLabel && !addedHeaders.has(cleanLabel.toLowerCase())) {
+      addedHeaders.add(cleanLabel.toLowerCase());
+      columns.push({
+        header: cleanLabel,
+        matchLabels: [cleanLabel]
+      });
+    }
+  });
+
+  return columns;
 }
 
 /** Disambiguate duplicate labels in CSV/Excel header row. */
@@ -364,6 +383,7 @@ const AadhaarVerificationRecords: React.FC = () => {
       }
       if (currentFilters.sortBy) params.append('sortBy', currentFilters.sortBy);
       if (currentFilters.sortOrder) params.append('sortOrder', currentFilters.sortOrder);
+      params.append('timezoneOffset', String(new Date().getTimezoneOffset()));
       
       // Determine API base URL
       const getApiBaseURL = () => {
@@ -514,8 +534,7 @@ const AadhaarVerificationRecords: React.FC = () => {
           hasSelfie: !!(r.selfie && (r.selfie.filename || r.selfie.path))
         };
         dynamicHeaders.forEach((h, i) => {
-          const key = jsonKeyForDynamicColumn(h, i);
-          base[key] = valueForDynamicExportColumn(r, dynCols[i].matchLabels);
+          base[h] = valueForDynamicExportColumn(r, dynCols[i].matchLabels);
         });
         return base;
       });
@@ -974,16 +993,15 @@ const AadhaarVerificationRecords: React.FC = () => {
                 <RecordDateRangeFilters
                   accent="blue"
                   dateFilter={filters.dateFilter}
-                  onDateFilterChange={(dateFilter) =>
-                    handleFilterChange({ ...filters, dateFilter })
-                  }
                   dateFrom={filters.dateFrom}
                   dateTo={filters.dateTo}
-                  onDateFromChange={(dateFrom) =>
-                    handleFilterChange({ ...filters, dateFrom, dateFilter: 'all' })
-                  }
-                  onDateToChange={(dateTo) =>
-                    handleFilterChange({ ...filters, dateTo, dateFilter: 'all' })
+                  onChange={(vals) =>
+                    handleFilterChange({
+                      ...filters,
+                      dateFilter: vals.dateFilter,
+                      dateFrom: vals.dateFrom,
+                      dateTo: vals.dateTo
+                    })
                   }
                   onClear={() =>
                     handleFilterChange({

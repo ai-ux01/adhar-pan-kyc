@@ -146,24 +146,28 @@ const AadhaarVerification: React.FC = () => {
     return /^\d{10}$/.test(cleaned);
   };
 
-  // Validate that all custom fields are filled and valid (all custom fields are mandatory)
+  // Validate that all required custom fields are filled and format-validated if filled
   const areAllRequiredCustomFieldsFilled = (): boolean => {
     if (availableCustomFields.length === 0) return true; // No custom fields, so validation passes
     
-    // Check if ALL custom fields (not just required ones) have values and are valid
     return availableCustomFields.every(field => {
       const value = customFields[field.fieldName];
-      // Check if value exists and is not empty
-      if (value === undefined || value === null) return false;
-      if (typeof value === 'string' && value.trim() === '') return false;
-      if (Array.isArray(value) && value.length === 0) return false;
       
-      // Validate email format for email-type fields
+      // If the field is empty, check if it's required
+      const isEmpty = value === undefined || value === null || 
+                      (typeof value === 'string' && value.trim() === '') || 
+                      (Array.isArray(value) && value.length === 0);
+                      
+      if (isEmpty) {
+        return !field.required; // Valid if not required
+      }
+      
+      // Validate email format for email-type fields if a value is present
       if (field.fieldType === 'email' && typeof value === 'string') {
         return isValidEmailFormat(value);
       }
       
-      // Validate phone number format for phone-type fields
+      // Validate phone number format for phone-type fields if a value is present
       if (field.fieldType === 'phone' && typeof value === 'string') {
         return isValidPhoneNumber(value);
       }

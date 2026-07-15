@@ -122,10 +122,13 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Logo serving endpoint (bypasses helmet restrictions)
-app.get('/api/logos/:userId', (req, res) => {
+app.get('/api/logos/:userId', async (req, res) => {
   const userId = req.params.userId;
-  const logoPath = path.join(__dirname, '../uploads/logos');
-  
+  const getCorsOrigin = require('./utils/corsHelper').getAllowedOrigin;
+  const User = require('./models/User');
+  const fs = require('fs');
+  const path = require('path');
+
   // Set CORS headers for image serving - use same origin logic as main CORS config
   res.set({
     'Access-Control-Allow-Origin': getCorsOrigin(req.headers.origin),
@@ -133,26 +136,49 @@ app.get('/api/logos/:userId', (req, res) => {
     'Access-Control-Allow-Methods': 'GET',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Cross-Origin-Resource-Policy': 'cross-origin',
-    'Cross-Origin-Embedder-Policy': 'unsafe-none'
+    'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
   });
-  
-  // Find the logo file for this user
-  const fs = require('fs');
-  fs.readdir(logoPath, (err, files) => {
-    if (err) {
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || !user.branding?.logo) {
       return res.status(404).json({ error: 'Logo not found' });
     }
+
+    const logo = user.branding.logo;
     
-    // Find the most recent logo file for this user
-    const logoFiles = files.filter(file => file.startsWith('logo-'));
-    if (logoFiles.length === 0) {
-      return res.status(404).json({ error: 'Logo not found' });
+    // Attempt to serve from disk if it exists
+    if (logo.path) {
+      const absolutePath = path.resolve(__dirname, '..', logo.path.replace(/\\/g, '/'));
+      if (fs.existsSync(absolutePath)) {
+        return res.sendFile(absolutePath);
+      }
+      
+      const fallbackPath = path.join(__dirname, '../uploads/logos', logo.filename);
+      if (fs.existsSync(fallbackPath)) {
+        return res.sendFile(fallbackPath);
+      }
     }
-    
-    // Get the most recent logo file
-    const latestLogo = logoFiles.sort().pop();
-    res.sendFile(path.join(logoPath, latestLogo));
-  });
+
+    // Fallback to base64 data URI
+    if (logo.data) {
+      const matches = logo.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const contentType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.set('Content-Type', contentType);
+        return res.send(buffer);
+      }
+    }
+
+    return res.status(404).json({ error: 'Logo file not found' });
+  } catch (error) {
+    logger.error('Error serving logo:', error);
+    return res.status(500).json({ error: 'Failed to retrieve logo' });
+  }
 });
 
 // Health check endpoint

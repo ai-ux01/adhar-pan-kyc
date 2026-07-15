@@ -4,11 +4,9 @@ export type DateFilterPreset = 'all' | 'today' | 'week' | 'month';
 
 export interface RecordDateRangeFiltersProps {
   dateFilter: string;
-  onDateFilterChange: (value: DateFilterPreset) => void;
   dateFrom: string;
   dateTo: string;
-  onDateFromChange: (value: string) => void;
-  onDateToChange: (value: string) => void;
+  onChange: (values: { dateFilter: DateFilterPreset; dateFrom: string; dateTo: string }) => void;
   onClear?: () => void;
   accent?: 'blue' | 'emerald' | 'indigo';
   className?: string;
@@ -22,11 +20,9 @@ const accentRing: Record<NonNullable<RecordDateRangeFiltersProps['accent']>, str
 
 const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
   dateFilter,
-  onDateFilterChange,
   dateFrom,
   dateTo,
-  onDateFromChange,
-  onDateToChange,
+  onChange,
   onClear,
   accent = 'blue',
   className = ''
@@ -37,21 +33,27 @@ const RecordDateRangeFilters: React.FC<RecordDateRangeFiltersProps> = ({
   const showClear = (hasCustomRange || dateFilter !== 'all') && onClear;
 
   const handlePresetChange = (value: string) => {
-    onDateFilterChange(value as DateFilterPreset);
-    if (value !== 'all') {
-      onDateFromChange('');
-      onDateToChange('');
-    }
+    onChange({
+      dateFilter: value as DateFilterPreset,
+      dateFrom: '',
+      dateTo: ''
+    });
   };
 
   const handleFromChange = (value: string) => {
-    onDateFromChange(value);
-    if (value) onDateFilterChange('all');
+    onChange({
+      dateFilter: 'all',
+      dateFrom: value,
+      dateTo: dateTo
+    });
   };
 
   const handleToChange = (value: string) => {
-    onDateToChange(value);
-    if (value) onDateFilterChange('all');
+    onChange({
+      dateFilter: 'all',
+      dateFrom: dateFrom,
+      dateTo: value
+    });
   };
 
   return (

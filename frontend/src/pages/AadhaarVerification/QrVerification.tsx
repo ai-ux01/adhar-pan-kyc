@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { validateAadhaar, filterAadhaarInput } from '../../utils/validation';
 import api from '../../services/api';
+import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
 
 interface VerificationStep {
   step: 'enter-details' | 'otp-verification' | 'success' | 'error';
@@ -34,6 +35,34 @@ const QrVerification: React.FC = () => {
   const [verificationRecordId, setVerificationRecordId] = useState<string | null>(null);
   const [hasSelfieAccess, setHasSelfieAccess] = useState(false);
   const [companyName, setCompanyName] = useState('the Company');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
+  const [availableCustomFields, setAvailableCustomFields] = useState<any[]>([]);
+  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
+  const [enableCustomFields, setEnableCustomFields] = useState(false);
+
+  const isValidEmailFormat = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const isValidPhoneFormat = (phone: string) => {
+    return /^\d{10}$/.test(phone);
+  };
+
+  const areAllRequiredCustomFieldsFilled = (): boolean => {
+    if (availableCustomFields.length === 0) return true;
+    return availableCustomFields.every(field => {
+      if (!field.required) return true;
+      const value = customFields[field.fieldName];
+      if (value === undefined || value === null) return false;
+      if (typeof value === 'string' && value.trim() === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return true;
+    });
+  };
+
+  const hasCustomFieldValidationError = (): boolean => {
+    return Object.keys(customFieldErrors).length > 0;
+  };
   const [cameraMode, setCameraMode] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null); 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -48,6 +77,8 @@ const QrVerification: React.FC = () => {
         if (userResponse.data.success) {
           setHasSelfieAccess(userResponse.data.data.hasSelfieAccess || false);
           setCompanyName(userResponse.data.data.companyName || 'the Company');
+          setEnableCustomFields(userResponse.data.data.enableCustomFields || false);
+          setAvailableCustomFields(userResponse.data.data.customFields || []);
         }
       } catch (error) {
         console.error('Error fetching user info:', error);
@@ -247,6 +278,17 @@ const QrVerification: React.FC = () => {
       return;
     }
 
+    // Validate required custom fields
+    if (!areAllRequiredCustomFieldsFilled()) {
+      toast.error('Please fill in all required custom fields');
+      return;
+    }
+
+    if (hasCustomFieldValidationError()) {
+      toast.error('Please correct the validation errors in the custom fields before proceeding');
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Use api instance for better error handling and retry logic
@@ -255,7 +297,11 @@ const QrVerification: React.FC = () => {
         {
           aadhaarNumber: aadhaarNumber.replace(/\s+/g, '').replace(/-/g, ''),
           location: '',
-          dynamicFields: [],
+          dynamicFields: Object.entries(customFields).map(([key, value]) => ({
+            label: key,
+            value: value != null ? String(value) : ''
+          })),
+          customFields: customFields,
           consentAccepted: consentAccepted
         }
       );
@@ -310,7 +356,11 @@ const QrVerification: React.FC = () => {
           aadhaarNumber: aadhaarNumber.replace(/\s/g, ''),
           otp: otp,
           transactionId: transactionId,
-          dynamicFields: []
+          dynamicFields: Object.entries(customFields).map(([key, value]) => ({
+            label: key,
+            value: value != null ? String(value) : ''
+          })),
+          customFields: customFields
         }
       );
 
@@ -377,6 +427,73 @@ const QrVerification: React.FC = () => {
                   required
                 />
               </div>
+
+              {/* Custom Fields */}
+              {enableCustomFields && availableCustomFields.length > 0 && (
+                <div className="mt-6 border-t border-gray-100 pt-6">
+                  <h3 className="text-base font-bold text-gray-700 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    Additional Details
+                  </h3>
+                  <CustomFieldsRenderer
+                    appliesTo="verification"
+                    values={customFields}
+                    onChange={(fieldName, value) => {
+                      setCustomFields({
+                        ...customFields,
+                        [fieldName]: value
+                      });
+                      
+                      // Validate email fields in real-time
+                      const field = availableCustomFields.find(f => f.fieldName === fieldName);
+                      if (field && field.fieldType === 'email' && typeof value === 'string') {
+                        if (value.trim() === '') {
+                          setCustomFieldErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors[fieldName];
+                            return newErrors;
+                          });
+                        } else if (!isValidEmailFormat(value)) {
+                          setCustomFieldErrors(prev => ({
+                            ...prev,
+                            [fieldName]: 'Please enter a valid email address'
+                          }));
+                        } else {
+                          setCustomFieldErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors[fieldName];
+                            return newErrors;
+                          });
+                        }
+                      }
+
+                      // Validate phone fields in real-time
+                      if (field && field.fieldType === 'phone' && typeof value === 'string') {
+                        if (value.trim() === '') {
+                          setCustomFieldErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors[fieldName];
+                            return newErrors;
+                          });
+                        } else if (!isValidPhoneFormat(value)) {
+                          setCustomFieldErrors(prev => ({
+                            ...prev,
+                            [fieldName]: 'Please enter a valid 10-digit phone number (numeric only)'
+                          }));
+                        } else {
+                          setCustomFieldErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors[fieldName];
+                            return newErrors;
+                          });
+                        }
+                      }
+                    }}
+                    errors={customFieldErrors}
+                    enabledCustomFieldIds={availableCustomFields.map(f => f._id)}
+                  />
+                </div>
+              )}
 
               {/* Consent Checkbox - same as main Aadhaar verification */}
               <div className="flex items-start bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border-2 border-blue-100">

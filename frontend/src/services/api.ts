@@ -101,6 +101,13 @@ api.interceptors.request.use(
     if (!(config as InternalAxiosRequestConfig & { _retryCount?: number })._retryCount) {
       (config as InternalAxiosRequestConfig & { _retryCount?: number })._retryCount = 0;
     }
+    // Automatically add timezoneOffset to all GET requests
+    if (config.method?.toLowerCase() === 'get') {
+      config.params = {
+        ...config.params,
+        timezoneOffset: String(new Date().getTimezoneOffset())
+      };
+    }
     return config;
   },
   (error) => {

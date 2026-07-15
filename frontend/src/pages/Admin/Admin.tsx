@@ -45,6 +45,12 @@ interface User {
   };
   customFields?: Record<string, any>;
   enabledCustomFields?: string[]; // Array of custom field IDs
+  qrCode?: {
+    code?: string;
+    generatedAt?: string;
+    isActive?: boolean;
+    enableCustomFields?: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -1738,11 +1744,13 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
               <RecordDateRangeFilters
                 accent="emerald"
                 dateFilter={auditDateFilter}
-                onDateFilterChange={setAuditDateFilter}
                 dateFrom={auditDateFrom}
                 dateTo={auditDateTo}
-                onDateFromChange={setAuditDateFrom}
-                onDateToChange={setAuditDateTo}
+                onChange={(vals) => {
+                  setAuditDateFilter(vals.dateFilter);
+                  setAuditDateFrom(vals.dateFrom);
+                  setAuditDateTo(vals.dateTo);
+                }}
                 onClear={() => {
                   setAuditDateFilter('all');
                   setAuditDateFrom('');
@@ -2842,7 +2850,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                 </div>
                 
                 {/* Custom Fields Access Control */}
-                {editingUser && availableCustomFields.length > 0 && (
+                {(editingUser || showCreateUser) && availableCustomFields.length > 0 && (
                   <div className="border-t border-gray-200 pt-4 mt-4">
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Enable Custom Fields for this User</h4>
                     <p className="text-xs text-gray-500 mb-3">Select which custom fields this user can access</p>
@@ -3229,6 +3237,53 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     <p className="text-xs text-gray-600 mb-1">QR Code URL:</p>
                     <p className="text-xs font-mono text-gray-800 break-all">{qrCodeData.qrCodeUrl}</p>
                   </div>
+                  
+                  {/* Enable Custom Fields Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-purple-950">Custom Fields on QR Code</span>
+                      <span className="text-xs text-purple-700">Require scanner to fill custom fields</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserForQrCode.qrCode?.enableCustomFields || false}
+                        onChange={async (e) => {
+                          const enabled = e.target.checked;
+                          try {
+                            const res = await api.patch(`/admin/users/${selectedUserForQrCode._id}/qr-custom-fields`, {
+                              enableCustomFields: enabled
+                            });
+                            if (res.data.success) {
+                              showToast({
+                                type: 'success',
+                                message: enabled ? 'Custom fields enabled for QR Code!' : 'Custom fields disabled for QR Code.'
+                              });
+                              // Update selectedUserForQrCode and users state locally
+                              const updatedUser = {
+                                ...selectedUserForQrCode,
+                                qrCode: {
+                                  ...selectedUserForQrCode.qrCode,
+                                  enableCustomFields: enabled
+                                }
+                              };
+                              setSelectedUserForQrCode(updatedUser);
+                              setUsers(users.map(u => u._id === updatedUser._id ? updatedUser : u));
+                            }
+                          } catch (err: any) {
+                            console.error('Error toggling QR custom fields:', err);
+                            showToast({
+                              type: 'error',
+                              message: err.response?.data?.message || 'Failed to update settings'
+                            });
+                          }
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
                   <div className="flex space-x-3 pt-4">
                     <button
                       type="button"

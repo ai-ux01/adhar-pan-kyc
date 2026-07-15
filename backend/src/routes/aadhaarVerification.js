@@ -141,6 +141,7 @@ router.get('/records', protect, async (req, res) => {
     const dateFrom = req.query.dateFrom || '';
     const dateTo = req.query.dateTo || '';
     const dateFilter = req.query.dateFilter || 'all';
+    const timezoneOffset = req.query.timezoneOffset || '0';
     const sortBy = req.query.sortBy || 'createdAt';
     const sortOrder = req.query.sortOrder || 'desc';
 
@@ -182,7 +183,7 @@ router.get('/records', protect, async (req, res) => {
       };
     }
 
-    applyCreatedAtDateFilter(searchQuery, { dateFilter, dateFrom, dateTo });
+    applyCreatedAtDateFilter(searchQuery, { dateFilter, dateFrom, dateTo, timezoneOffset });
 
     const allowedSortFields = new Set([
       'createdAt',
