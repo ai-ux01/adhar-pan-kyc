@@ -31,6 +31,7 @@ interface CustomFieldsRendererProps {
   errors?: Record<string, string>;
   readonly?: boolean;
   enabledCustomFieldIds?: string[]; // Array of custom field IDs that are enabled for this user
+  fields?: CustomField[]; // Pre-fetched custom fields (if provided, skips API call)
 }
 
 const CustomFieldsRenderer: React.FC<CustomFieldsRendererProps> = ({
@@ -39,15 +40,21 @@ const CustomFieldsRenderer: React.FC<CustomFieldsRendererProps> = ({
   onChange,
   errors = {},
   readonly = false,
-  enabledCustomFieldIds
+  enabledCustomFieldIds,
+  fields
 }) => {
-  const [customFields, setCustomFields] = useState<CustomField[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [customFields, setCustomFields] = useState<CustomField[]>(fields || []);
+  const [loading, setLoading] = useState(!fields);
 
   useEffect(() => {
+    if (fields) {
+      setCustomFields(fields);
+      setLoading(false);
+      return;
+    }
     fetchCustomFields();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliesTo, enabledCustomFieldIds]);
+  }, [appliesTo, enabledCustomFieldIds, fields]);
 
   const fetchCustomFields = async () => {
     try {

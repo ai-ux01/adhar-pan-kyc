@@ -438,6 +438,7 @@ const QrVerification: React.FC = () => {
                   <CustomFieldsRenderer
                     appliesTo="verification"
                     values={customFields}
+                    fields={availableCustomFields}
                     onChange={(fieldName, value) => {
                       setCustomFields({
                         ...customFields,
