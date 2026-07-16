@@ -216,6 +216,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
     status: 'active',
     enabledCustomFields: [] as string[],
     credits: 0,
+    enableQrCustomFields: false,
   });
 
   useEffect(() => {
@@ -553,6 +554,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         status: 'active',
         enabledCustomFields: [],
         credits: 0,
+        enableQrCustomFields: false,
       });
       fetchUsers();
     } catch (error: any) {
@@ -592,6 +594,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         status: 'active',
         enabledCustomFields: [],
         credits: 0,
+        enableQrCustomFields: false,
       });
       fetchUsers();
     } catch (error: any) {
@@ -936,6 +939,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
       status: user.status,
       enabledCustomFields: user.enabledCustomFields || [],
       credits: user.credits ?? 0,
+      enableQrCustomFields: user.qrCode?.enableCustomFields || false,
     });
   };
 
@@ -2767,6 +2771,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     status: 'active',
                     enabledCustomFields: [],
                     credits: 0,
+                    enableQrCustomFields: false,
                   });
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -2879,6 +2884,23 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                           <span className="text-xs text-gray-400">({field.fieldType})</span>
                         </label>
                       ))}
+                    </div>
+                    
+                    {/* QR Code Custom Fields Toggle */}
+                    <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-purple-950">Enable Custom Fields on QR Code</span>
+                        <span className="text-xs text-purple-700">Require candidates to fill these custom fields when scanning the QR Code</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.enableQrCustomFields || false}
+                          onChange={(e) => setFormData({ ...formData, enableQrCustomFields: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      </label>
                     </div>
                   </div>
                 )}
@@ -3236,52 +3258,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                   <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">QR Code URL:</p>
                     <p className="text-xs font-mono text-gray-800 break-all">{qrCodeData.qrCodeUrl}</p>
-                  </div>
-                  
-                  {/* Enable Custom Fields Toggle */}
-                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-purple-950">Custom Fields on QR Code</span>
-                      <span className="text-xs text-purple-700">Require scanner to fill custom fields</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedUserForQrCode.qrCode?.enableCustomFields || false}
-                        onChange={async (e) => {
-                          const enabled = e.target.checked;
-                          try {
-                            const res = await api.patch(`/admin/users/${selectedUserForQrCode._id}/qr-custom-fields`, {
-                              enableCustomFields: enabled
-                            });
-                            if (res.data.success) {
-                              showToast({
-                                type: 'success',
-                                message: enabled ? 'Custom fields enabled for QR Code!' : 'Custom fields disabled for QR Code.'
-                              });
-                              // Update selectedUserForQrCode and users state locally
-                              const updatedUser = {
-                                ...selectedUserForQrCode,
-                                qrCode: {
-                                  ...selectedUserForQrCode.qrCode,
-                                  enableCustomFields: enabled
-                                }
-                              };
-                              setSelectedUserForQrCode(updatedUser);
-                              setUsers(users.map(u => u._id === updatedUser._id ? updatedUser : u));
-                            }
-                          } catch (err: any) {
-                            console.error('Error toggling QR custom fields:', err);
-                            showToast({
-                              type: 'error',
-                              message: err.response?.data?.message || 'Failed to update settings'
-                            });
-                          }
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                    </label>
                   </div>
 
                   <div className="flex space-x-3 pt-4">

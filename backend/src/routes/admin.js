@@ -134,7 +134,7 @@ router.get('/users/:id', protect, authorize('admin'), async (req, res) => {
 // Create new user (admin only)
 router.post('/users', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, password, role, moduleAccess, status, enabledCustomFields, credits } = req.body;
+    const { name, email, password, role, moduleAccess, status, enabledCustomFields, credits, enableQrCustomFields } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -154,6 +154,9 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
       status: status || 'active',
       enabledCustomFields: enabledCustomFields || [],
       credits: credits != null ? Math.max(0, Number(credits)) : 0,
+      qrCode: {
+        enableCustomFields: !!enableQrCustomFields
+      }
     });
 
     await user.save();
@@ -199,7 +202,7 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, role, moduleAccess, status, enabledCustomFields, credits } = req.body;
+    const { name, email, role, moduleAccess, status, enabledCustomFields, credits, enableQrCustomFields } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -240,6 +243,12 @@ router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
     }
     if (credits !== undefined) {
       user.credits = Math.max(0, Number(credits));
+    }
+    if (enableQrCustomFields !== undefined) {
+      if (!user.qrCode) {
+        user.qrCode = {};
+      }
+      user.qrCode.enableCustomFields = !!enableQrCustomFields;
     }
 
     await user.save();
@@ -2458,11 +2467,12 @@ router.get('/users/:id/qr-code', protect, authorize('admin'), async (req, res) =
         margin: 1
       });
 
-      // Update user with QR code
+      // Update user with QR code (preserving enableCustomFields)
       user.qrCode = {
         code: qrCodeString,
         generatedAt: new Date(),
-        isActive: true
+        isActive: true,
+        enableCustomFields: user.qrCode?.enableCustomFields || false
       };
       await user.save();
 
@@ -2553,20 +2563,11 @@ router.get('/qr/:code', async (req, res) => {
     let customFields = [];
     
     if (user.qrCode?.enableCustomFields) {
-      // Get all active custom fields that apply to verification
-      const allFields = await CustomField.find({
+      // Get all active custom fields that apply to verification (admin-enabled custom fields)
+      customFields = await CustomField.find({
         isActive: true,
         appliesTo: { $in: ['verification', 'both'] }
       }).sort({ displayOrder: 1 });
-      
-      // Filter to only include fields enabled for this user
-      if (user.role === 'admin') {
-        customFields = allFields;
-      } else {
-        customFields = allFields.filter(field => 
-          user.enabledCustomFields && user.enabledCustomFields.map(id => String(id)).includes(String(field._id))
-        );
-      }
     }
 
     res.json({
