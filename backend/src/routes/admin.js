@@ -2563,11 +2563,19 @@ router.get('/qr/:code', async (req, res) => {
     let customFields = [];
     
     if (user.qrCode?.enableCustomFields) {
-      // Get all active custom fields that apply to verification (admin-enabled custom fields)
-      customFields = await CustomField.find({
+      // Get all active custom fields that apply to verification
+      const allFields = await CustomField.find({
         isActive: true,
         appliesTo: { $in: ['verification', 'both'] }
       }).sort({ displayOrder: 1 });
+      
+      // Filter to only include fields enabled for this user
+      if (user.role === 'admin') {
+        customFields = allFields;
+      } else {
+        const enabledIds = (user.enabledCustomFields || []).map(id => String(id));
+        customFields = allFields.filter(field => enabledIds.includes(String(field._id)));
+      }
     }
 
     res.json({
