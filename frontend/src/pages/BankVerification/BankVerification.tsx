@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { useVerificationCredits } from '../../hooks/useVerificationCredits';
 import api from '../../services/api';
-import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
-import ExportReportButtons from '../../components/ExportReportButtons';
 import {
   CreditCardIcon,
   CheckCircleIcon,
@@ -87,26 +85,7 @@ const BankVerification: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processingBatch, setProcessingBatch] = useState(false);
 
-  // Export state
-  const [exporting, setExporting] = useState(false);
-
-  // History / Recent records state
-  const [records, setRecords] = useState<BankVerificationRecord[]>([]);
-  const [loadingRecords, setLoadingRecords] = useState(true);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const fetchRecords = async () => {
-    try {
-      setLoadingRecords(true);
-      const response = await api.get('/bank-verification/records?limit=10');
-      setRecords(response.data?.data?.records || []);
-    } catch (error) {
-      console.error('Failed to fetch Bank verification records:', error);
-    } finally {
-      setLoadingRecords(false);
-    }
-  };
 
   const fetchBatches = async () => {
     try {
@@ -134,9 +113,7 @@ const BankVerification: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'single') {
-      fetchRecords();
-    } else {
+    if (activeTab === 'upload') {
       fetchBatches();
     }
   }, [activeTab]);
@@ -206,8 +183,6 @@ const BankVerification: React.FC = () => {
         type: response.data.data.status === 'verified' ? 'success' : 'error',
         message: response.data.message,
       });
-
-      await fetchRecords();
     } catch (error: any) {
       await syncCreditsAfterVerify(error.response?.data);
       showToast({
@@ -320,38 +295,6 @@ const BankVerification: React.FC = () => {
     }
   };
 
-  // Export handler for verified records (fetches unmasked data up to 200 records)
-  const handleExport = async (format: ReportExportFormat) => {
-    try {
-      setExporting(true);
-      const response = await api.get('/bank-verification/records?export=1&limit=200');
-      const recordsToExport = response.data?.data?.records || [];
-
-      if (recordsToExport.length === 0) {
-        showToast({ type: 'error', message: 'No records to export' });
-        return;
-      }
-
-      const headers = ['Account Number', 'IFSC Code', 'Status', 'Holder Name', 'Account Exists', 'Created At'];
-      const matrix = recordsToExport.map((r: any) => [
-        r.accountNumber || '',
-        r.ifsc || '',
-        r.status || '',
-        r.nameAtBank || '',
-        r.accountExists ? 'Yes' : 'No',
-        new Date(r.createdAt).toLocaleString()
-      ]);
-
-      downloadReport('bank_verification_records', format, headers, matrix, 'Bank Verification');
-      showToast({ type: 'success', message: `${format.toUpperCase()} report downloaded successfully` });
-    } catch (error) {
-      console.error('Export failed:', error);
-      showToast({ type: 'error', message: 'Failed to export records' });
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'verified':
@@ -380,18 +323,28 @@ const BankVerification: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Premium Header */}
-      <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-xl">
+      <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="rounded-2xl bg-white/20 p-3">
             <CreditCardIcon className="h-8 w-8" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">Bank Verification</h1>
-            <p className="mt-1 text-blue-100 text-sm">
+            <p className="mt-1 text-blue-100 text-sm font-medium">
               Verify bank account presence and retrieve registered name instantly in single or bulk batches.
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => window.location.href = '/bank-verification-records'}
+          className="inline-flex items-center px-5 py-2.5 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold rounded-2xl transition-all duration-300 border border-white/30 hover:border-white/50 hover:scale-105 transform self-start md:self-auto shadow-md"
+        >
+          <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          View All Records
+        </button>
       </div>
 
       {/* Navigation Tabs */}
@@ -428,135 +381,98 @@ const BankVerification: React.FC = () => {
 
       {/* SINGLE VERIFICATION TAB */}
       {activeTab === 'single' && (
-        <>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {/* Form */}
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Account details</h2>
-              <form onSubmit={handleVerify} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    IFSC Code
-                  </label>
-                  <input
-                    type="text"
-                    value={ifsc}
-                    onChange={(e) => setIfsc(e.target.value.toUpperCase())}
-                    placeholder="HDFC0001234"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    11-digit alphanumeric code. 5th digit is always 0.
-                  </p>
-                </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {/* Form */}
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Account details</h2>
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  IFSC Code
+                </label>
+                <input
+                  type="text"
+                  value={ifsc}
+                  onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                  placeholder="HDFC0001234"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  11-digit alphanumeric code. 5th digit is always 0.
+                </p>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Account Number
-                  </label>
-                  <input
-                    type="text"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="1234567890"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Bank account number (digits only).
-                  </p>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder="1234567890"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Bank account number (digits only).
+                </p>
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={verifying}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
-                >
-                  <MagnifyingGlassIcon className="h-5 w-5" />
-                  {verifying ? 'Verifying…' : 'Verify Account'}
-                </button>
-              </form>
-            </div>
-
-            {/* Result */}
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Verification result</h2>
-              {!result ? (
-                <p className="text-sm text-slate-500">Enter IFSC and Account details to run verification.</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(result.status)}
-                    <span className="text-sm font-medium capitalize text-slate-800">{result.status}</span>
-                  </div>
-                  
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm border-t border-slate-100 pt-4">
-                    <div>
-                      <dt className="text-slate-500">Account Owner Name (At Bank)</dt>
-                      <dd className="font-semibold text-slate-900 text-base">{result.nameAtBank || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">IFSC Code</dt>
-                      <dd className="font-medium text-slate-900">{result.ifsc}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Account Number</dt>
-                      <dd className="font-medium text-slate-900">{result.accountNumber}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Account Exists</dt>
-                      <dd className="font-medium text-slate-900">{result.accountExists ? 'Yes' : 'No'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-500">Verification ID</dt>
-                      <dd className="font-medium text-slate-900">{result.recordId || '—'}</dd>
-                    </div>
-                    {result.processingTime !== undefined && (
-                      <div>
-                        <dt className="text-slate-500">Processing Time</dt>
-                        <dd className="font-medium text-slate-900">{result.processingTime} ms</dd>
-                      </div>
-                    )}
-                  </dl>
-                </div>
-              )}
-            </div>
+              <button
+                type="submit"
+                disabled={verifying}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" />
+                {verifying ? 'Verifying…' : 'Verify Account'}
+              </button>
+            </form>
           </div>
 
-          {/* History log */}
-          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Recent verifications</h2>
-              {records.length > 0 && (
-                <ExportReportButtons exporting={exporting} onExport={handleExport} />
-              )}
-            </div>
-            {loadingRecords ? (
-              <div className="p-8 text-center text-sm text-slate-500">Loading records…</div>
-            ) : records.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">No bank verifications yet.</div>
+          {/* Result */}
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Verification result</h2>
+            {!result ? (
+              <p className="text-sm text-slate-500">Enter IFSC and Account details to run verification.</p>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {records.map((record) => (
-                  <div key={record._id} className="px-6 py-4 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-medium text-slate-900">
-                        {record.accountNumber} · <span className="text-slate-500">{record.ifsc}</span>
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        Holder: <span className="font-medium text-slate-700">{record.nameAtBank || '—'}</span> ·{' '}
-                        {new Date(record.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 capitalize text-sm text-slate-700">
-                      {getStatusIcon(record.status)}
-                      {record.status}
-                    </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  {getStatusIcon(result.status)}
+                  <span className="text-sm font-medium capitalize text-slate-800">{result.status}</span>
+                </div>
+                
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm border-t border-slate-100 pt-4">
+                  <div>
+                    <dt className="text-slate-500">Account Owner Name (At Bank)</dt>
+                    <dd className="font-semibold text-slate-900 text-base">{result.nameAtBank || '—'}</dd>
                   </div>
-                ))}
+                  <div>
+                    <dt className="text-slate-500">IFSC Code</dt>
+                    <dd className="font-medium text-slate-900">{result.ifsc}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Account Number</dt>
+                    <dd className="font-medium text-slate-900">{result.accountNumber}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Account Exists</dt>
+                    <dd className="font-medium text-slate-900">{result.accountExists ? 'Yes' : 'No'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Verification ID</dt>
+                    <dd className="font-medium text-slate-900">{result.recordId || '—'}</dd>
+                  </div>
+                  {result.processingTime !== undefined && (
+                    <div>
+                      <dt className="text-slate-500">Processing Time</dt>
+                      <dd className="font-medium text-slate-900">{result.processingTime} ms</dd>
+                    </div>
+                  )}
+                </dl>
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {/* BULK UPLOAD TAB CONTENT */}
