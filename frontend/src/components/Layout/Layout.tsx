@@ -105,6 +105,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       current: location.pathname === '/udyam',
       module: 'udyam',
     },
+    {
+      name: 'Verify Bank',
+      href: '/bank-verification',
+      icon: CreditCardIcon,
+      current: location.pathname === '/bank-verification',
+      module: 'bank-verification',
+    },
     ...(user?.role === 'admin' ? [{
       name: 'Admin',
       href: '/admin',

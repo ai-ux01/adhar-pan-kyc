@@ -20,6 +20,7 @@ import AadhaarPanRecords from './pages/AadhaarPan/AadhaarPanRecords';
 import AadhaarVerification from './pages/AadhaarVerification/AadhaarVerification';
 import AadhaarVerificationRecords from './pages/AadhaarVerification/AadhaarVerificationRecords';
 import Udyam from './pages/Udyam/Udyam';
+import BankVerification from './pages/BankVerification/BankVerification';
 import QrVerification from './pages/AadhaarVerification/QrVerification';
 import ProfileWrapper from './pages/Profile/ProfileWrapper';
 import Admin from './pages/Admin/Admin';
@@ -246,6 +247,14 @@ const AppContent: React.FC = () => {
             <CreditModuleRoute module="udyam">
               <Layout>
                 <Udyam />
+              </Layout>
+            </CreditModuleRoute>
+          } />
+
+          <Route path="/bank-verification" element={
+            <CreditModuleRoute module="bank-verification">
+              <Layout>
+                <BankVerification />
               </Layout>
             </CreditModuleRoute>
           } />

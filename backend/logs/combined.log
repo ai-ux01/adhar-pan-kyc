@@ -87966,3 +87966,63 @@
   service: 'kyc-aadhaar-api',
   timestamp: '2026-05-30 19:58:04'
 }
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-02.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:08'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:09'
+}
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-00.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:46'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:46'
+}
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-00.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:55'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:05:56'
+}
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-02.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:06:28'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:06:29'
+}
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-02.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:06:36'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:06:37'
+}

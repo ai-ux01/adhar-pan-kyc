@@ -1560,6 +1560,7 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                                    module === 'aadhaar-pan' ? 'Aadhaar-PAN' : 
                                    module === 'aadhaar-verification' ? 'Aadhaar Verification' :
                                    module === 'udyam' ? 'Verify Udyam' :
+                                   module === 'bank-verification' ? 'Bank Verification' :
                                    module === 'selfie-upload' ? 'Selfie Upload' :
                                    module === 'qr-code' ? 'QR Code' : module}
                                 </span>
@@ -3049,6 +3050,24 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                         className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">Verify Udyam</span>
+                    </label>
+
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserForModules.moduleAccess.includes('bank-verification')}
+                        onChange={(e) => {
+                          const newModuleAccess = e.target.checked
+                            ? [...selectedUserForModules.moduleAccess, 'bank-verification']
+                            : selectedUserForModules.moduleAccess.filter(m => m !== 'bank-verification');
+                          setSelectedUserForModules({
+                            ...selectedUserForModules,
+                            moduleAccess: newModuleAccess
+                          });
+                        }}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Bank Verification</span>
                     </label>
                     
                     <label className="flex items-center">
