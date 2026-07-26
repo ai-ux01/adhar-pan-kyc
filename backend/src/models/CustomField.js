@@ -92,6 +92,13 @@ const CustomFieldSchema = new mongoose.Schema({
     // verification: applies to verification records (PAN KYC, Aadhaar, etc.)
     // both: applies to both
   },
+  filledBy: {
+    type: String,
+    enum: ['user', 'operator'],
+    default: 'user',
+    // user: filled by the end user (during QR verification)
+    // operator: filled by the operator/admin in the verification log list edit modal
+  },
   category: {
     type: String,
     enum: ['personal', 'business', 'address', 'contact', 'other'],

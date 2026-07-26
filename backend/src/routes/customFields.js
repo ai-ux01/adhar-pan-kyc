@@ -103,6 +103,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
       displayOrder,
       isActive,
       appliesTo,
+      filledBy,
       category,
       showInList,
       searchable
@@ -149,6 +150,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
       displayOrder,
       isActive,
       appliesTo,
+      filledBy,
       category,
       showInList,
       searchable,
@@ -224,6 +226,7 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
       displayOrder,
       isActive,
       appliesTo,
+      filledBy,
       category,
       showInList,
       searchable
@@ -253,6 +256,7 @@ router.put('/:id', protect, authorize('admin'), async (req, res) => {
     if (displayOrder !== undefined) customField.displayOrder = displayOrder;
     if (isActive !== undefined) customField.isActive = isActive;
     if (appliesTo) customField.appliesTo = appliesTo;
+    if (filledBy) customField.filledBy = filledBy;
     if (category) customField.category = category;
     if (showInList !== undefined) customField.showInList = showInList;
     if (searchable !== undefined) customField.searchable = searchable;

@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import api, { HEAVY_REQUEST_TIMEOUT_MS } from '../../services/api';
 import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
 import ExportReportButtons from '../../components/ExportReportButtons';
+import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
 import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { 
   IdentificationIcon, 
@@ -326,7 +327,7 @@ const AadhaarVerificationRecords: React.FC = () => {
     return dynamicFieldLabels;
   }, [dynamicFieldKeysFromApi, dynamicFieldLabels]);
   const [editingRecord, setEditingRecord] = useState<VerificationRecord | null>(null);
-  const [editDynamicFields, setEditDynamicFields] = useState<Array<{ label: string; value: string }>>([]);
+  const [editCustomFieldValues, setEditCustomFieldValues] = useState<Record<string, any>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
@@ -761,30 +762,26 @@ const AadhaarVerificationRecords: React.FC = () => {
       keys = await fetchDynamicFieldKeys();
     }
 
-    setEditDynamicFields(
-      keys.length > 0
-        ? keys.map((key) => ({
-            label: key.fieldLabel,
-            value: getValueForLabel(key.fieldLabel) || getValueForLabel(key.fieldName) || ''
-          }))
-        : []
-    );
+    const initialValues: Record<string, string> = {};
+    keys.forEach((k) => {
+      initialValues[k.fieldName] = getValueForLabel(k.fieldLabel) || getValueForLabel(k.fieldName) || '';
+    });
+    setEditCustomFieldValues(initialValues);
   };
 
   const handleCloseEdit = () => {
     setEditingRecord(null);
-    setEditDynamicFields([]);
+    setEditCustomFieldValues({});
     setSelfieFile(null);
     setSelfiePreview(null);
     if (selfiePreview) URL.revokeObjectURL(selfiePreview);
   };
 
-  const handleEditDynamicFieldChange = (index: number, value: string) => {
-    setEditDynamicFields((prev) => {
-      const next = [...prev];
-      if (next[index]) next[index] = { ...next[index], value };
-      return next;
-    });
+  const handleEditCustomFieldChange = (fieldName: string, value: any) => {
+    setEditCustomFieldValues((prev) => ({
+      ...prev,
+      [fieldName]: value
+    }));
   };
 
   const handleSelfieFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -833,10 +830,13 @@ const AadhaarVerificationRecords: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingRecord) return;
-    const toSave = editDynamicFields.map((f) => ({
-      label: String(f.label).trim(),
-      value: String(f.value ?? '').trim()
-    }));
+    const toSave = Object.entries(editCustomFieldValues).map(([fieldName, value]) => {
+      const matchingKey = dynamicFieldKeysFromApi.find((k) => k.fieldName === fieldName);
+      return {
+        label: matchingKey ? (matchingKey.fieldLabel || fieldName) : fieldName,
+        value: value != null ? String(value).trim() : ''
+      };
+    });
     setIsSavingEdit(true);
     try {
       const { data } = await api.patch<{ success: boolean; data: VerificationRecord; message?: string }>(
@@ -1863,25 +1863,13 @@ const AadhaarVerificationRecords: React.FC = () => {
                 <p className="text-sm text-gray-600 mb-4">
                   Record: {editingRecord.name || '-'} · Aadhaar ending {editingRecord.aadhaarNumber?.slice(-4) || '-'}
                 </p>
-                <div className="space-y-3 mb-6">
-                  {editDynamicFields.length === 0 ? (
-                    <p className="text-gray-500 py-4">
-                      No dynamic fields configured. Field names are set in the database. Ask admin to add custom fields for verification (Admin → Custom Fields, Applies to: Verification).
-                    </p>
-                  ) : (
-                    editDynamicFields.map((field, index) => (
-                      <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <label className="text-sm font-medium text-gray-700 sm:w-40 shrink-0">{field.label}</label>
-                        <input
-                          type="text"
-                          value={field.value}
-                          onChange={(e) => handleEditDynamicFieldChange(index, e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                          placeholder={dynamicFieldKeysFromApi[index]?.placeholder || `Enter ${field.label}`}
-                        />
-                      </div>
-                    ))
-                  )}
+                <div className="space-y-3 mb-6 max-h-96 overflow-y-auto pr-1">
+                  <CustomFieldsRenderer
+                    appliesTo="verification"
+                    values={editCustomFieldValues}
+                    onChange={handleEditCustomFieldChange}
+                    fields={dynamicFieldKeysFromApi as any}
+                  />
                 </div>
                 {/* Selfie: show current and allow replace */}
                 <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
@@ -1944,7 +1932,7 @@ const AadhaarVerificationRecords: React.FC = () => {
                   </button>
                   <button
                     onClick={handleSaveEdit}
-                    disabled={isSavingEdit || editDynamicFields.length === 0}
+                    disabled={isSavingEdit || Object.keys(editCustomFieldValues).length === 0}
                     className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSavingEdit ? (

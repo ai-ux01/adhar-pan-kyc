@@ -33,6 +33,7 @@ interface CustomField {
   displayOrder: number;
   isActive: boolean;
   appliesTo: string;
+  filledBy?: string;
   category: string;
   showInList: boolean;
   searchable: boolean;
@@ -64,6 +65,7 @@ interface FormData {
   displayOrder: number;
   isActive: boolean;
   appliesTo: string;
+  filledBy: string;
   category: string;
   showInList: boolean;
   searchable: boolean;
@@ -118,6 +120,7 @@ const CustomFieldsManager: React.FC = () => {
     displayOrder: 0,
     isActive: true,
     appliesTo: 'user',
+    filledBy: 'user',
     category: 'other',
     showInList: false,
     searchable: false
@@ -183,7 +186,7 @@ const CustomFieldsManager: React.FC = () => {
     }));
   };
 
-  const handleOpenModal = (field?: CustomField) => {
+  const handleOpenModal = (field: CustomField | null = null) => {
     if (field) {
       setEditingField(field);
       setFormData({
@@ -199,6 +202,7 @@ const CustomFieldsManager: React.FC = () => {
         displayOrder: field.displayOrder,
         isActive: field.isActive,
         appliesTo: field.appliesTo,
+        filledBy: field.filledBy || 'user',
         category: field.category,
         showInList: field.showInList,
         searchable: field.searchable
@@ -218,6 +222,7 @@ const CustomFieldsManager: React.FC = () => {
         displayOrder: customFields.length,
         isActive: true,
         appliesTo: 'user',
+        filledBy: 'user',
         category: 'other',
         showInList: false,
         searchable: false
@@ -415,6 +420,11 @@ const CustomFieldsManager: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-sm text-gray-900 capitalize">{field.appliesTo}</span>
+                    {['verification', 'both'].includes(field.appliesTo) && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Filled by: <span className="font-semibold capitalize">{field.filledBy || 'user'}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {field.isActive ? (
@@ -573,6 +583,24 @@ const CustomFieldsManager: React.FC = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Filled By */}
+                {['verification', 'both'].includes(formData.appliesTo) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Filled By
+                    </label>
+                    <select
+                      name="filledBy"
+                      value={formData.filledBy}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="user">User (during QR scan)</option>
+                      <option value="operator">Operator / Admin (in log list edit)</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Display Order */}
                 <div>

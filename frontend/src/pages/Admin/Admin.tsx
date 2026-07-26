@@ -4,7 +4,6 @@ import { useToast } from '../../contexts/ToastContext';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import CustomFieldsManager from '../../components/CustomFieldsManager';
-import CustomFieldsRenderer from '../../components/CustomFieldsRenderer';
 import PartnersManager from '../../components/PartnersManager';
 import RecordDateRangeFilters, { type DateFilterPreset } from '../../components/RecordDateRangeFilters';
 import { getUserLogoUrl } from '../../utils/userLogo';
@@ -216,7 +215,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
     moduleAccess: [] as string[],
     status: 'active',
     enabledCustomFields: [] as string[],
-    customFields: {} as Record<string, any>,
     credits: 0,
     enableQrCustomFields: false,
   });
@@ -555,7 +553,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         moduleAccess: [],
         status: 'active',
         enabledCustomFields: [],
-        customFields: {},
         credits: 0,
         enableQrCustomFields: false,
       });
@@ -596,7 +593,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
         moduleAccess: [],
         status: 'active',
         enabledCustomFields: [],
-        customFields: {},
         credits: 0,
         enableQrCustomFields: false,
       });
@@ -942,7 +938,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
       moduleAccess: user.moduleAccess,
       status: user.status,
       enabledCustomFields: user.enabledCustomFields || [],
-      customFields: user.customFields || {},
       credits: user.credits ?? 0,
       enableQrCustomFields: user.qrCode?.enableCustomFields || false,
     });
@@ -2776,7 +2771,6 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                     moduleAccess: [],
                     status: 'active',
                     enabledCustomFields: [],
-                    customFields: {},
                     credits: 0,
                     enableQrCustomFields: false,
                   });
@@ -2861,68 +2855,40 @@ const Admin: React.FC<{ initialTab?: string }> = ({ initialTab = 'dashboard' }) 
                   <p className="mt-1 text-xs text-gray-500">Each verification attempt uses 1 credit (success or failure).</p>
                 </div>
                 
-                {/* Custom Fields Selection */}
+                {/* Custom Fields Access Control */}
                 {(editingUser || showCreateUser) && availableCustomFields.length > 0 && (
-                  <div className="border-t border-gray-200 pt-4 mt-4 space-y-4">
-                    {/* 1. User Profile Custom Fields values input */}
-                    {availableCustomFields.some(f => ['user', 'both'].includes(f.appliesTo)) && (
-                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">User Profile Custom Fields</h4>
-                        <CustomFieldsRenderer
-                          appliesTo="user"
-                          values={formData.customFields || {}}
-                          onChange={(fieldName, value) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              customFields: {
-                                ...prev.customFields,
-                                [fieldName]: value
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Enable Custom Fields for this User</h4>
+                    <p className="text-xs text-gray-500 mb-3">Select which custom fields this user can access</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {availableCustomFields.map((field) => (
+                        <label key={field._id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.enabledCustomFields.includes(field._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  enabledCustomFields: [...formData.enabledCustomFields, field._id]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  enabledCustomFields: formData.enabledCustomFields.filter(id => id !== field._id)
+                                });
                               }
-                            }));
-                          }}
-                          fields={availableCustomFields.filter(f => ['user', 'both'].includes(f.appliesTo))}
-                        />
-                      </div>
-                    )}
-
-                    {/* 2. Verification custom fields enable checkboxes */}
-                    {availableCustomFields.some(f => ['verification', 'both'].includes(f.appliesTo)) && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 mb-1">Enable Verification Custom Fields</h4>
-                        <p className="text-xs text-gray-500 mb-3">Select which custom fields candidates will be prompted to fill during verifications</p>
-                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-white">
-                          {availableCustomFields
-                            .filter(field => ['verification', 'both'].includes(field.appliesTo))
-                            .map((field) => (
-                              <label key={field._id} className="flex items-center space-x-2 p-1.5 hover:bg-gray-50 rounded-md cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={formData.enabledCustomFields.includes(field._id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        enabledCustomFields: [...prev.enabledCustomFields, field._id]
-                                      }));
-                                    } else {
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        enabledCustomFields: prev.enabledCustomFields.filter(id => id !== field._id)
-                                      }));
-                                    }
-                                  }}
-                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                                />
-                                <span className="text-sm font-medium text-gray-700">{field.fieldLabel}</span>
-                                <span className="text-xs text-gray-400">({field.fieldType} · applies to {field.appliesTo})</span>
-                              </label>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+                            }}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm font-medium text-gray-700">{field.fieldLabel}</span>
+                          <span className="text-xs text-gray-400">({field.fieldType})</span>
+                        </label>
+                      ))}
+                    </div>
                     
                     {/* QR Code Custom Fields Toggle */}
-                    <div className="p-3 bg-purple-50 rounded-lg border border-purple-100 flex items-center justify-between">
+                    <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-purple-950">Enable Custom Fields on QR Code</span>
                         <span className="text-xs text-purple-700">Require candidates to fill these custom fields when scanning the QR Code</span>
