@@ -277,7 +277,7 @@ const BankVerificationRecords: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
-          <ExportReportButtons exporting={exporting} onExport={handleExport} />
+          <ExportReportButtons exporting={exporting} onExport={handleExport} variant="dark" />
           <button
             onClick={refreshRecords}
             disabled={loading}
