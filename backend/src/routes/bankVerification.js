@@ -280,6 +280,7 @@ router.post('/upload', protect, checkModuleAccess('bank-verification'), upload.s
       const record = new BankVerification({
         userId: req.user.id,
         batchId: batchId,
+        verificationId: `VERIFY_BANK_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         ifsc: ifscVal.toString().trim().toUpperCase(),
         accountNumber: accountVal.toString().trim(),
         status: 'pending'
