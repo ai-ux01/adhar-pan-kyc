@@ -30,12 +30,12 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
-    const filetypes = /xlsx|xls/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    if (extname) {
+    const allowedTypes = ['.xlsx', '.xls', '.csv'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
       return cb(null, true);
     }
-    cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+    cb(new Error('Only Excel (.xlsx, .xls) and CSV (.csv) files are allowed'));
   },
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
@@ -615,8 +615,10 @@ router.delete('/batch/:batchId', protect, checkModuleAccess('bank-verification')
 // @access  Private
 router.get('/records', protect, checkModuleAccess('bank-verification'), async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const isExport = req.query.export === '1' || req.query.export === 'true';
+    const page = isExport ? 1 : Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = isExport ? 200 : Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = isExport ? 0 : (page - 1) * limit;
 
     const [records, total] = await Promise.all([
       BankVerification.find({ userId: req.user.id })
@@ -629,8 +631,8 @@ router.get('/records', protect, checkModuleAccess('bank-verification'), async (r
     // Decrypt records before returning to client
     const decryptedRecords = records.map(record => {
       const decrypted = record.decryptData();
-      // Mask account number for security on response list
-      if (decrypted.accountNumber && decrypted.accountNumber.length > 4) {
+      // Mask account number for security on response list (unless exporting)
+      if (!isExport && decrypted.accountNumber && decrypted.accountNumber.length > 4) {
         const len = decrypted.accountNumber.length;
         decrypted.accountNumber = 'X'.repeat(len - 4) + decrypted.accountNumber.slice(-4);
       }

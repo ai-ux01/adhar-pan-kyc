@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { useVerificationCredits } from '../../hooks/useVerificationCredits';
 import api from '../../services/api';
+import { downloadReport, type ReportExportFormat } from '../../utils/exportReport';
+import ExportReportButtons from '../../components/ExportReportButtons';
 import {
   CreditCardIcon,
   CheckCircleIcon,
@@ -23,6 +25,7 @@ interface BankVerificationRecord {
   status: string;
   nameAtBank?: string;
   createdAt: string;
+  accountExists?: boolean;
 }
 
 interface BankVerificationResult {
@@ -83,6 +86,9 @@ const BankVerification: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processingBatch, setProcessingBatch] = useState(false);
+
+  // Export state
+  const [exporting, setExporting] = useState(false);
 
   // History / Recent records state
   const [records, setRecords] = useState<BankVerificationRecord[]>([]);
@@ -224,7 +230,7 @@ const BankVerification: React.FC = () => {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      showToast({ type: 'error', message: 'Please select an Excel file to upload' });
+      showToast({ type: 'error', message: 'Please select an Excel/CSV file to upload' });
       return;
     }
 
@@ -249,7 +255,7 @@ const BankVerification: React.FC = () => {
     } catch (error: any) {
       showToast({
         type: 'error',
-        message: error.response?.data?.message || 'Failed to upload Excel file'
+        message: error.response?.data?.message || 'Failed to upload file'
       });
     } finally {
       setUploading(false);
@@ -311,6 +317,38 @@ const BankVerification: React.FC = () => {
       link.remove();
     } catch (error) {
       showToast({ type: 'error', message: 'Failed to download sample template' });
+    }
+  };
+
+  // Export handler for verified records (fetches unmasked data up to 200 records)
+  const handleExport = async (format: ReportExportFormat) => {
+    try {
+      setExporting(true);
+      const response = await api.get('/bank-verification/records?export=1&limit=200');
+      const recordsToExport = response.data?.data?.records || [];
+
+      if (recordsToExport.length === 0) {
+        showToast({ type: 'error', message: 'No records to export' });
+        return;
+      }
+
+      const headers = ['Account Number', 'IFSC Code', 'Status', 'Holder Name', 'Account Exists', 'Created At'];
+      const matrix = recordsToExport.map((r: any) => [
+        r.accountNumber || '',
+        r.ifsc || '',
+        r.status || '',
+        r.nameAtBank || '',
+        r.accountExists ? 'Yes' : 'No',
+        new Date(r.createdAt).toLocaleString()
+      ]);
+
+      downloadReport('bank_verification_records', format, headers, matrix, 'Bank Verification');
+      showToast({ type: 'success', message: `${format.toUpperCase()} report downloaded successfully` });
+    } catch (error) {
+      console.error('Export failed:', error);
+      showToast({ type: 'error', message: 'Failed to export records' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -486,8 +524,11 @@ const BankVerification: React.FC = () => {
 
           {/* History log */}
           <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Recent verifications</h2>
+              {records.length > 0 && (
+                <ExportReportButtons exporting={exporting} onExport={handleExport} />
+              )}
             </div>
             {loadingRecords ? (
               <div className="p-8 text-center text-sm text-slate-500">Loading records…</div>
@@ -527,7 +568,7 @@ const BankVerification: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Upload bulk data</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Upload an Excel worksheet (.xlsx or .xls) to verify bank accounts in bulk.
+                  Upload an Excel or CSV file (.xlsx, .xls, .csv) to verify bank accounts in bulk.
                 </p>
               </div>
 
@@ -537,16 +578,16 @@ const BankVerification: React.FC = () => {
                 >
                   <CloudArrowUpIcon className="h-10 w-10 text-slate-400 mb-2" />
                   <span className="text-sm font-semibold text-slate-700">
-                    {selectedFile ? selectedFile.name : 'Select excel file'}
+                    {selectedFile ? selectedFile.name : 'Select file'}
                   </span>
                   <span className="text-xs text-slate-400 mt-1">
-                    {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'Supports .xlsx, .xls'}
+                    {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'Supports .xlsx, .xls, .csv'}
                   </span>
                   <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".xlsx,.xls"
+                    accept=".xlsx,.xls,.csv"
                     className="hidden"
                   />
                 </div>
@@ -564,7 +605,7 @@ const BankVerification: React.FC = () => {
                     type="button"
                     onClick={handleDownloadTemplate}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                    title="Download template Excel file"
+                    title="Download template file"
                   >
                     <DocumentArrowDownIcon className="h-5 w-5" />
                     Template
@@ -713,7 +754,7 @@ const BankVerification: React.FC = () => {
                   <div className="text-xl font-bold text-red-600 mt-1">{selectedBatch.stats.rejected}</div>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50/20 p-3 text-center">
-                  <div className="text-xs font-semibold text-amber-600 uppercase">Error</div>
+                  <div className="text-xs font-semibold text-amber-650 uppercase">Error</div>
                   <div className="text-xl font-bold text-amber-600 mt-1">{selectedBatch.stats.error}</div>
                 </div>
               </div>

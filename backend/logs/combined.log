@@ -88026,3 +88026,15 @@
   service: 'kyc-aadhaar-api',
   timestamp: '2026-07-26 17:06:37'
 }
+{
+  message: 'MongoDB Connected: ac-apfrhxs-shard-00-00.ahxupto.mongodb.net',
+  level: 'info',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:50:36'
+}
+{
+  message: 'MongoDB disconnected',
+  level: 'warn',
+  service: 'kyc-aadhaar-api',
+  timestamp: '2026-07-26 17:50:36'
+}

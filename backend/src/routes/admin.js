@@ -134,7 +134,7 @@ router.get('/users/:id', protect, authorize('admin'), async (req, res) => {
 // Create new user (admin only)
 router.post('/users', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, password, role, moduleAccess, status, enabledCustomFields, credits, enableQrCustomFields } = req.body;
+    const { name, email, password, role, moduleAccess, status, enabledCustomFields, customFields, credits, enableQrCustomFields } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -153,6 +153,7 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
       moduleAccess: moduleAccess || [],
       status: status || 'active',
       enabledCustomFields: enabledCustomFields || [],
+      customFields: customFields || {},
       credits: credits != null ? Math.max(0, Number(credits)) : 0,
       qrCode: {
         enableCustomFields: !!enableQrCustomFields
@@ -194,7 +195,8 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
     logger.error('Error creating user:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create user'
+      message: 'Failed to create user',
+      error: error.message
     });
   }
 });
@@ -202,7 +204,7 @@ router.post('/users', protect, authorize('admin'), async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, role, moduleAccess, status, enabledCustomFields, credits, enableQrCustomFields } = req.body;
+    const { name, email, role, moduleAccess, status, enabledCustomFields, customFields, credits, enableQrCustomFields } = req.body;
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -229,7 +231,8 @@ router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
       role: user.role,
       moduleAccess: user.moduleAccess,
       status: user.status,
-      enabledCustomFields: user.enabledCustomFields
+      enabledCustomFields: user.enabledCustomFields,
+      customFields: user.customFields
     };
 
     // Update user
@@ -240,6 +243,9 @@ router.put('/users/:id', protect, authorize('admin'), async (req, res) => {
     user.status = status || user.status;
     if (enabledCustomFields !== undefined) {
       user.enabledCustomFields = enabledCustomFields;
+    }
+    if (customFields !== undefined) {
+      user.customFields = customFields;
     }
     if (credits !== undefined) {
       user.credits = Math.max(0, Number(credits));
